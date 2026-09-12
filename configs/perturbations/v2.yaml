@@ -1,0 +1,21 @@
+# Perturbaciones v2 — congeladas ANTES de la primera corrida (regla 5 de AGENTS.md).
+# v1 no se toca: vive en la metadata de src/altur/transforms.py.
+#
+# Origen: las seis condiciones del set de robustez de Ricardo, que evaluó la fase 1 de
+# research/spectral_factory/phase1_stress_test (D-A5.3). Todas son de EVALUACIÓN (holdout).
+# Si alguna se quiere usar para augmentar, se registra aparte con use=augment: no se mueve.
+version: 2
+frozen: "2026-09-12"
+use: holdout
+conditions:
+  clean: []
+  noise_snr10: ["noise_snr10@1"]
+  pitch_up1st: ["pitch_up1st@1"]
+  timestretch_0.9x: ["timestretch_0_9x@1"]
+  lowpass_3400hz: ["lowpass_3400@1"]
+  opus_16kbps: ["opus_16kbps@1"]
+unknowns:
+  - "UNK: si el SNR de noise_snr10 se mide sobre ch0 completo o solo sobre habla. Aquí: ch0 completo."
+  - "UNK: si el time-stretch del set original aplica a los dos canales. Aquí: los dos, con turnos reescalados."
+  - "UNK: el filtro pasa-bajas del set original. Aquí se reusa lowpass_3400@1 (FIR de 129 taps)."
+  - "UNK: la implementación original de pitch y tempo. Aquí: ffmpeg asetrate+atempo."

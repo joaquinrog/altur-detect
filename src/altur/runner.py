@@ -16,6 +16,7 @@ from typing import Any
 import numpy as np
 
 from . import transforms as builtin_transforms
+from . import transforms_v2 as builtin_transforms_v2
 from .cache import FeatureCache, cache_key
 from .features import acoustic_minimal, behavioral
 from .ledger import write_aggregate, write_run
@@ -24,7 +25,7 @@ from .seg import vad
 from .types import AudioExample
 
 # Imports are deliberately explicit: registration must never depend on filesystem discovery.
-_BUILTIN_PLUGINS = (acoustic_minimal, behavioral, vad, builtin_transforms)
+_BUILTIN_PLUGINS = (acoustic_minimal, behavioral, vad, builtin_transforms, builtin_transforms_v2)
 
 
 class RunnerError(RuntimeError):
