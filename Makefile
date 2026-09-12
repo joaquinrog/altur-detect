@@ -5,8 +5,8 @@ PORT    ?= 8000
 URL     ?= http://127.0.0.1:$(PORT)
 IMAGE   ?= altur-detect:local
 
-.PHONY: help setup test lint serve smoke docker docker-run bundle-test docs-pack clean \
-	data protocol leak-test
+.PHONY: help setup test lint serve smoke docker docker-run bundle bundle-test docs-pack clean \
+	data protocol leak-test failover-sim
 
 help:  ## Muestra esta ayuda
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | \
@@ -50,6 +50,14 @@ docker:  ## Construye la imagen
 
 docker-run:  ## Corre la imagen en $(PORT)
 	docker run --rm -p $(PORT):8000 --name altur-detect $(IMAGE)
+
+bundle:  ## Entrena el candidato y sella el bundle en models/acoustic_ch0_v1
+	$(PY) scripts/build_bundle.py --out models/acoustic_ch0_v1
+	@echo "  selecciona el candidato con: cp -a models/acoustic_ch0_v1 models/current"
+
+failover-sim:  ## Ejecuta las 4 simulaciones locales del runbook (A4.4)
+	$(PY) scripts/build_bundle.py --out /tmp/altur-prev >/dev/null
+	$(PY) scripts/failover_sim.py --bundle models/current --previous /tmp/altur-prev
 
 bundle-test:  ## 🔴 Construir, guardar, cargar y predecir en un contenedor LIMPIO
 	docker build -t $(IMAGE) .

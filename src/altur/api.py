@@ -44,19 +44,67 @@ class Settings:
         self.allow_resample = _env_flag("ALTUR_ALLOW_RESAMPLE", True)
         self.response_extras = _env_flag("ALTUR_RESPONSE_EXTRAS", False)
         self.max_request_bytes = int(os.environ.get("ALTUR_MAX_REQUEST_BYTES") or 96 * 1024 * 1024)
+        # 🔴 Modo de emergencia del runbook, y SOLO eso. Con el flag apagado (el default),
+        # un bundle que no verifica deja el servicio en 503 en vez de responder una
+        # constante: un 503 se ve en el monitor, una constante se lee como un modelo.
+        self.emergency_constant = _env_flag("ALTUR_EMERGENCY_CONSTANT", False)
+        # Petición ficticia al arrancar para absorber el cold start (planes de BLAS/FFT de
+        # NumPy, primer toque de las páginas del intérprete). Ocurre ANTES de que readiness
+        # responda 200, que es lo único que la hace útil: si el warm-up pasara después, el
+        # primer request real de un juez seguiría pagándolo.
+        self.warmup = _env_flag("ALTUR_WARMUP", True)
 
 
-STATE: dict[str, Any] = {"detector": None, "problems": [], "settings": None, "loaded_at": None}
+STATE: dict[str, Any] = {
+    "detector": None, "problems": [], "settings": None, "loaded_at": None, "warmup_ms": None,
+}
+
+
+def _warmup(det: Any) -> tuple[float | None, str | None]:
+    """Una inferencia ficticia sobre audio sintético. Nunca toca el dataset.
+
+    Si el warm-up falla, el bundle no puede servir y el servicio NO se declara listo. Es
+    deliberado: descubrirlo aquí cuesta un arranque; descubrirlo en el primer request de
+    un juez cuesta la ronda.
+    """
+    import numpy as np
+
+    from .types import SAMPLE_RATE, AudioExample
+
+    rng = np.random.default_rng(0)   # fijo: el warm-up no debe introducir variabilidad
+    n = SAMPLE_RATE * 2
+    ruido = (rng.standard_normal(n) * 0.01).astype(np.float32)
+    ex = AudioExample(ch0=ruido, ch1=ruido.copy(), sr=SAMPLE_RATE)
+    t0 = time.perf_counter()
+    try:
+        det.predict(ex)
+    except Exception as e:  # noqa: BLE001 — frontera: un warm-up roto es 503, no un crash
+        return None, f"warm-up falló: {type(e).__name__}: {e}"
+    return (time.perf_counter() - t0) * 1000.0, None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     s = Settings()
-    det, problems = bundle.load_detector(s.bundle_dir)
-    STATE.update(detector=det, problems=problems, settings=s, loaded_at=time.time())
-    if problems:
-        log.warning("bundle con observaciones: %s", problems)
-    log.info("detector listo: %s", det.name)
+    det, problems = bundle.load_detector(s.bundle_dir, strict=not s.emergency_constant)
+    problems = list(problems)
+    warmup_ms = None
+    if det is not None and s.warmup:
+        warmup_ms, warmup_problem = _warmup(det)
+        if warmup_problem:
+            problems.append(warmup_problem)
+            det = None
+    STATE.update(
+        detector=det, problems=problems, settings=s, loaded_at=time.time(), warmup_ms=warmup_ms,
+    )
+    if det is None:
+        # No se levanta una excepción: el proceso tiene que quedar vivo para que /health y
+        # /version se puedan consultar y digan QUÉ falló. Un proceso muerto no diagnostica.
+        log.error("bundle no servible; readiness quedará en 503: %s", problems)
+    else:
+        if problems:
+            log.warning("bundle con observaciones: %s", problems)
+        log.info("detector listo: %s (warm-up %s ms)", det.name, warmup_ms)
     yield
     STATE.update(detector=None)
 
@@ -161,8 +209,10 @@ async def health() -> dict[str, Any]:
 async def ready() -> Response:
     """Readiness: el modelo está cargado y puede atender. 503 si no."""
     if STATE["detector"] is None:
-        return JSONResponse(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                            content={"status": "not_ready"})
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"status": "not_ready", "reason": STATE["problems"] or ["sin detector"]},
+        )
     return JSONResponse(content={"status": "ready", "detector": STATE["detector"].name})
 
 
@@ -192,6 +242,12 @@ async def version() -> dict[str, Any]:
             )
         except Exception:  # noqa: BLE001 — /version nunca debe tumbar el servicio
             info["bundle"] = "ilegible"
+    if STATE["warmup_ms"] is not None:
+        info["warmup_ms"] = round(float(STATE["warmup_ms"]), 1)
     if STATE["problems"]:
-        info["warnings"] = STATE["problems"]
+        # Se declara el fallo, no se esconde. Los mensajes de `bundle.verify` son nombres
+        # relativos dentro del bundle (`model.json`), nunca rutas del host.
+        key = "bundle_error" if STATE["detector"] is None else "warnings"
+        info[key] = STATE["problems"]
+        info["bundle_ok"] = STATE["detector"] is not None
     return info

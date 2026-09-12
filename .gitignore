@@ -24,6 +24,9 @@ experiments/runs/
 # --- Checkpoints locales: pueden indexar derivados privados ---
 .checkpoints/
 
+# Artefacto local de setuptools al hacer `pip install .` en un venv de prueba.
+build/
+
 # --- Derivados pesados ---
 cache/
 models/scratch/

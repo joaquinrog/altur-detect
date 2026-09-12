@@ -3,9 +3,24 @@
 **FACT:** este procedimiento prepara el respaldo de `altur-detect` sin depender de quien lo
 opere. **UNK:** el operador final sera Bini o Joaquin.
 
-**UNK/BLOQUEO:** A3/A4.1 todavia no han producido el bundle ni la imagen finales. Los comandos de
-simulacion de este documento son instrucciones preparadas, no evidencia de un ensayo ejecutado.
-No deben correrse hasta que el integrador entregue los digests congelados.
+**OBS (A4, 2026-09-12):** el bundle y la imagen YA existen y las cuatro simulaciones locales
+**se ejecutaron**. Los numeros de este documento estan medidos, no estimados. Lo que sigue
+bloqueado esta marcado como tal y no se ha fingido: Vultr, URL/TLS, operador y la prueba desde
+otra red.
+
+Reproducir las simulaciones:
+
+```bash
+python scripts/build_bundle.py --out models/acoustic_ch0_v1
+cp -a models/acoustic_ch0_v1 models/current          # seleccionar el candidato es un acto explicito
+python scripts/build_bundle.py --out /tmp/altur-prev  # un build anterior real para el rollback
+python scripts/failover_sim.py --bundle models/current --previous /tmp/altur-prev
+```
+
+**FACT:** el bundle es reproducible. Dos builds del mismo commit, mismos datos y misma semilla
+producen un `model.json` **byte a byte identico**; lo unico que cambia es `created_utc`, y por
+eso el SHA-256 del manifest identifica un *build*, no una especificacion. La identidad de la
+especificacion son `run_id` y `code_digest`, que si son estables.
 
 ## Variables obligatorias
 
@@ -52,7 +67,8 @@ timedatectl show -p NTPSynchronized -p TimeUSec --value
 Salida esperada:
 
 - `operator` no contiene placeholders y el reloj esta en UTC.
-- CPU, RAM y disco cumplen los minimos congelados por A4.3: **TODO(A4.3)**.
+- CPU, RAM y disco cumplen los minimos medidos en A4.3: **2 vCPU, 1 GB RAM libre y 300 MB de
+  disco**. Medido: imagen de **70 MB**, residente **137 MB** con 2 workers en reposo.
 - Docker reporta versiones de cliente y servidor sin error de permisos.
 - `ss` no devuelve un proceso escuchando en el puerto elegido.
 - `NTPSynchronized` es `yes`. Si no, parar: los tiempos y certificados no son confiables.
@@ -115,8 +131,37 @@ docker inspect altur-detect-backup --format \
 Salida esperada: id de contenedor y
 `status=running restart=unless-stopped network=altur-closed`.
 
-**INF:** una red Docker `--internal` bloquea el egress del contenedor y el puerto publicado deja
-la entrada bajo control del host. A4.3 debe verificar este comportamiento en el host final.
+### 🔴 CORRECCION MEDIDA EN A4.3 — no usar `--internal` para el contenedor que sirve
+
+**La INF anterior queda REFUTADA.** Se midio: con `docker network create --internal` **el puerto
+publicado no funciona**. `docker inspect` devuelve `ports=map[8000/tcp:[]]` — el mapeo esta
+vacio. El contenedor responde `200` en `/health/ready` **por dentro** y es **inalcanzable desde
+el host**.
+
+En un failover eso es el peor fallo posible: `docker inspect` reporta `running`, el healthcheck
+interno pasa, y nadie puede consultarlo. El comando de arriba, tal como estaba escrito, producia
+un respaldo muerto que parecia sano.
+
+**Lo que si funciona (medido):** red bridge normal, con el resto del endurecimiento intacto.
+
+```bash
+docker run -d --name altur-detect-backup \
+  --restart unless-stopped \
+  --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m \
+  --cap-drop ALL --security-opt no-new-privileges \
+  -p "${BACKUP_LISTEN_PORT}:8000" \
+  "$IMAGE_REF"
+```
+
+**OBS:** en bridge el contenedor **si tiene egress** (se comprobo abriendo una conexion a
+`1.1.1.1:80` desde dentro, y funciona). Por lo tanto **el "sin egress" hay que imponerlo en el
+firewall del host, no en Docker.** Lo que si esta demostrado a nivel de aplicacion: el camino de
+inferencia **no abre ningun socket** — se corrio `predict()` con `socket.socket` parcheado para
+lanzar excepcion, y pasa. Y la imagen no trae sklearn, scipy, webrtcvad, pandas, matplotlib,
+torch, librosa ni parselmouth: la unica dependencia numerica es NumPy.
+
+**Arranque medido:** de `docker run` a `/health/ready` 200 en **1.52 s**, warm-up incluido
+(29 ms). El warm-up corre ANTES de que readiness responda 200, que es lo unico que lo hace util.
 
 ### 4. Comprobar localmente y abrir la ruta
 
@@ -194,10 +239,36 @@ burst_successes=<...>/<...>
 recovery_seconds=<...>
 ```
 
-## Simulaciones locales preparadas, no ejecutadas
+## Simulaciones locales — EJECUTADAS el 2026-09-12 (A4.4)
 
-**UNK/BLOQUEO:** no existe bundle real todavia. Estos cuatro escenarios se ejecutan despues de
-A3/A4.1 y antes del ensayo fisico. Medir desde el inicio del incidente hasta readiness externa.
+`scripts/failover_sim.py` corre los cuatro escenarios sobre el proceso y mide desde el incidente
+hasta readiness. Resultado: **4/4 pasan.**
+
+| escenario | resultado | tiempo |
+|---|---|---|
+| proceso caido | ✅ readiness cae y vuelve | **0.31 s** de relanzado |
+| bundle corrupto | ✅ readiness 503, liveness 200, sin fuga de rutas | **0.30 s** hasta 503 |
+| puerto ocupado | ✅ el arranque falla legible (`returncode=3`, `[Errno 98] address already in use`) | inmediato |
+| rollback al bundle anterior | ✅ `/version` declara el build anterior | **0.31 s** |
+
+**Estos numeros miden la recuperacion de la APLICACION, no la del contenedor ni la de la red.**
+En el host, el relanzado lo hace `--restart unless-stopped` y hay que sumarle el arranque del
+contenedor (**1.52 s** medido) y la propagacion de la ruta, que no esta medida.
+
+### 🔴 Un smoke en verde NO prueba que el modelo este cuerdo
+
+**OBS (A4.3, medido):** sobre cuatro entradas que no son voz —ruido blanco, silencio digital,
+un tono puro de 440 Hz y ruido rosa— el bundle responde `is_synthetic=false` con **confianza
+entre 0.9997 y 1.000000**. Una logistica sobre features estandarizadas extrapola en linea recta,
+asi que fuera de distribucion la sigmoide satura. **El detector no tiene un "no se".**
+
+Consecuencia para este runbook: `VALID_FIXTURE` es audio sintetico, asi que un smoke en verde
+prueba **liveness y contrato**, no correccion del modelo. No se debe usar como criterio de
+"el respaldo esta sirviendo bien". Es la misma patologia que D-A3.8 por otro eje: ahi el modelo
+era mas confiado cuanto menos audio tenia; aqui lo es cuanto menos se parece la entrada a una
+llamada.
+
+Los comandos originales con Docker siguen abajo y son validos con la correccion de red de A4.3.
 
 ### Proceso caido
 
@@ -226,8 +297,22 @@ docker run --rm --network none \
 ```
 
 Esperado: verificacion rechazada por `hash distinto`; nunca se activa silenciosamente una
-prediccion constante. **TODO(A4.2):** confirmar el codigo HTTP final de readiness con el contrato
-integrado de A4.2.
+prediccion constante.
+
+**OBS (A4.2, medido):** con un byte cambiado el servicio arranca y queda asi en **0.30 s**:
+
+| endpoint | codigo | cuerpo |
+|---|---|---|
+| `/health` | 200 | `status=alive`, `detector_loaded=false` |
+| `/health/ready` | **503** | `status=not_ready`, `reason=["hash distinto en model.json"]` |
+| `/version` | 200 | `bundle_ok=false`, `bundle_error=["hash distinto en model.json"]` |
+| `/detect` | **503** | no responde ninguna prediccion |
+
+El proceso queda **vivo a proposito**: un proceso muerto no diagnostica. Y se verifico que
+`/version` no filtra ninguna ruta del host.
+
+`ConstantDetector` solo se activa con `ALTUR_EMERGENCY_CONSTANT=1`, que es una decision
+explicita del operador y queda en el acta. Nunca por defecto.
 
 ### Puerto ocupado
 

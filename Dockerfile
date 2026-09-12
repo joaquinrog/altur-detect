@@ -16,10 +16,14 @@ WORKDIR /app
 COPY pyproject.toml README.md ./
 COPY src/ ./src/
 RUN pip install --no-cache-dir . && \
+    rm -rf /app/build && \
     find /usr/local -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
 
 # El bundle del modelo. Va DENTRO de la imagen a propósito: un contenedor que descarga
 # su modelo al arrancar no es desplegable en una red cerrada.
+# `.dockerignore` deja pasar SOLO `models/current`: los candidatos que no se sirven no
+# tienen por qué viajar, y el rollback del runbook se hace por digest de imagen, no
+# cambiando de directorio dentro de la misma imagen.
 COPY models/ ./models/
 
 # Usuario sin privilegios.
