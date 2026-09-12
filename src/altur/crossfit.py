@@ -252,8 +252,15 @@ def make_nested_fit_predict(
     calibrator_factory: Callable[[], Any],
     fusion_factory: Callable[[], Any] = logistic_fusion,
     inner_folds: int = DEFAULT_INNER_FOLDS,
+    predict_table: "FeatureTable | None" = None,
 ) -> Callable[[Sequence[str], Sequence[str], np.ndarray], tuple[np.ndarray, float, dict]]:
-    """Devuelve un `FitPredict` para `protocol.nested_cv` con todo congelado dentro de IN_k."""
+    """Devuelve un `FitPredict` para `protocol.nested_cv` con todo congelado dentro de IN_k.
+
+    `predict_table` es cómo se aplica el gauntlet: se entrena con `table` (limpio) y se
+    predice `OUT_k` leyendo de otra tabla (perturbada). Así la perturbación se evalúa
+    **sobre el fold evaluado y nunca como augmentación accidental**, que es el requisito de
+    A3.5. Si es `None`, se predice de la misma tabla.
+    """
     if not branches:
         raise ModelError("hace falta al menos una rama")
     nombres = [b.name for b in branches]
@@ -318,10 +325,12 @@ def make_nested_fit_predict(
             m.fit(table.matrix(train_ids, branch.feature_order), y_tr)
             modelos.append(m)
 
-        table.phase = "predict"
+        destino = table if predict_table is None else predict_table
+        destino.phase = "predict"
         for j, (branch, m) in enumerate(zip(branches, modelos, strict=True)):
-            S_out[:, j] = m.p_synthetic(table.matrix(test_ids, branch.feature_order))
+            S_out[:, j] = m.p_synthetic(destino.matrix(test_ids, branch.feature_order))
 
+        destino.phase = "unset"
         table.phase = "unset"
         scores = calibrator.transform(fusion.transform(S_out))
         return scores, float(thr), {"audit": auditoria}
