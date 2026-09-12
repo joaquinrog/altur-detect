@@ -1,131 +1,87 @@
 # altur-detect
 
-Servicio CPU para detectar si la voz del caller en una llamada telefonica es sintetica.
-Proyecto del track Altur de HackMTY 2026.
-
-`POST /detect` recibe WAV estereo a 8 kHz, con el caller en el canal 0 y el agente en el canal 1.
+**¿Quién llama: una persona o una voz sintética?** `POST /detect` recibe una llamada telefónica
+estéreo a 8 kHz y decide si el **caller** (canal 0) es humano o sintético. HackMTY 2026, track
+Altur, equipo **Chorizos Circuits**.
 
 ```json
 {"is_synthetic": true, "confidence": 0.87}
 ```
 
-## Estado
+## Enfoque
 
-La API y el formato de bundle estan implementados. El candidato entrenado y sus cifras publicas
-siguen pendientes de congelarse; este README no inventa resultados provisionales.
+**Una señal, bien hecha y auditada.** El detector que se sirve es acústico y deliberadamente simple:
 
-## Instalacion
+1. **11 features espectrales del canal 0**, calculadas con NumPy sobre ventanas normalizadas a RMS
+   unitario, para que el volumen no decida: energía relativa en seis bandas (0–300, 300–1000,
+   1000–2000, 2000–3000, 3000–3400 y 3400–4000 Hz), planitud espectral, centroide, rolloff 85 %,
+   flujo espectral y dispersión de energía.
+2. **Regresión logística estandarizada + calibración Platt**, con umbral fijado por exactitud
+   balanceada. Todo se ajusta **dentro** de un cross-fitting anidado sobre `train`; `val` no se
+   usa para iterar.
+3. **Un bundle versionado** (modelo, calibrador, orden de features, hashes, protocolo) que la API
+   carga sin saber qué modelo es. Cambiar de modelo es cambiar de bundle, no de código.
 
-Requiere Python 3.12 o posterior.
+**Resultado (OOF sobre `train`, n = 282 llamadas):** AUC **0.978** [0.961, 0.991], Brier 0.054.
 
-```bash
-python3 -m venv .venv
-./.venv/bin/pip install -e ".[dev]"
-./.venv/bin/python -m pytest
-```
+### Por qué funciona, y lo que no afirmamos
 
-Para iniciar el servicio:
+El 0.978 hay que leerlo con dos controles que corrimos contra nosotros mismos:
 
-```bash
-./.venv/bin/uvicorn altur.api:app --host 0.0.0.0 --port 8000 --workers 2
-```
+- **Parte grande de la señal es la cadena de producción, no la voz.** El canal del **agente**, que
+  es el mismo TTS en las dos clases, separa con AUC 0.64. Y **solo el silencio** separa con 0.97.
+  El sintético corta en seco a ~3400 Hz; el humano llega a Nyquist.
+- **Con poco audio se equivoca con seguridad.** A 5 s el AUC es 0.40 (invertido) con la confianza
+  más alta de la curva. Por eso `/detect` **analiza siempre la llamada completa** y declara 20 s
+  como mínimo.
+- La conversación **no** está decidiendo: si se revuelven los tiempos de turno dejando el audio
+  intacto, cambia el 2 % de los veredictos. Las features conductuales no suman (+0.0015, dentro
+  del intervalo), así que el bundle es solo acústico.
 
-Tambien se puede usar `make setup`, `make test`, `make serve` y `make smoke`.
+No afirmamos que el número transfiera a voces, motores o cadenas telefónicas no vistos. Es el modo
+de falla documentado del campo, y el set oculto está hecho de eso.
 
-## Contrato HTTP
+## Rendimiento
 
-### `POST /detect`
-
-Formatos aceptados:
-
-- WAV crudo con `Content-Type: audio/wav`;
-- JSON base64, por ejemplo `{"audio":"<BASE64_WAV>"}`;
-- multipart con un campo de audio.
-
-Respuesta exitosa:
-
-```json
-{"is_synthetic": false, "confidence": 0.61}
-```
-
-`is_synthetic` clasifica solo el canal 0. `confidence` esta acotada a `[0,1]`. Entradas invalidas
-devuelven HTTP 400 con `error` y `detail`, sin stack trace. El nombre exacto del campo oficial,
-timeout, concurrencia y tamanio maximo del benchmark permanecen por confirmar.
-
-| Endpoint | Funcion |
-|---|---|
-| `POST /detect` | Prediccion |
-| `GET /health` | Liveness del proceso |
-| `GET /health/ready` | Readiness del detector |
-| `GET /version` | Commit, bundle, protocolo y limitaciones sin secretos |
-
-## Arquitectura
-
-La API se mantiene independiente del modelo. Un bundle versionado declara schema, orden de
-features, protocolo, umbral, limitaciones y SHA-256 de sus artefactos. Cambiar de candidato
-significa cambiar `ALTUR_BUNDLE_DIR`, no reescribir `/detect`.
-
-El arnes separa audio y metadatos: un extractor recibe `AudioExample`, nunca id, etiqueta, split
-o procedencia. La seleccion se realiza con predicciones out-of-fold sobre `train`; `val` no se usa
-para iterar.
-
-Detalles: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
-
-## Reproducibilidad
-
-- El dataset se descarga y verifica por SHA-256 con `make data`.
-- Grupos y folds se regeneran de forma determinista con `make protocol` y no se publican porque
-  contienen identificadores.
-- Cada bundle registra commit, protocolo, orden de features y hashes.
-- Toda metrica publicable debe declarar `n`, unidad, split, protocolo, seed, commit y digest del
-  codigo efectivo.
-- Los tests usan audio sintetico generado; no incluyen llamadas reales.
-
-La model card queda en [`docs/MODEL_CARD.md`](docs/MODEL_CARD.md) y el protocolo de datos en
-[`docs/DATA_PROTOCOL_CARD.md`](docs/DATA_PROTOCOL_CARD.md).
-
-## Privacidad
-
-El audio, `manifest.csv`, IDs, caches, folds y predicciones por llamada no se redistribuyen. El
-servicio no necesita enviar audio a terceros y la imagen objetivo funciona sin egress. Solo se
-publican agregados que no permiten reconstruir una llamada.
-
-## Limitaciones
-
-- No podemos afirmar generalizacion a hablante no visto sobre el dataset oficial. El manifest no
-  trae llave de union; grupo = llamada es un fallback conservador.
-- La prevalencia cambia entre splits: `train` es 59.9 % sintetico y `val` 47.9 %. El prior del set
-  oculto es desconocido y la confianza puede trasladarse mal.
-- Las clases tienen cadenas de produccion distintas: el sintetico corta alrededor de 3400 Hz y el
-  humano llega a Nyquist. Un AUC alto puede medir la cadena y no la voz. La causa sigue pendiente
-  de confirmar con Altur.
-- El dataset oficial no demuestra generalizacion a otro proveedor TTS o cadena telefonica.
-- Las features conductuales son proxies y pueden fallar con agentes rapidos, humanos lentos o
-  grabaciones humanas reproducidas.
-
-Proveniencia de prevalencia: `n=282` train y `n=71` val; unidad = llamada; protocolo = conteo del
-manifest v1.0; seed = no aplica; commit = `a5979a4`; digest efectivo = no aplica al conteo textual.
-Proveniencia de banda: `n=282`, unidad = llamada, split = train, protocolo = `official_v1`, commit
-= `a5979a4`; seed de submuestra y digest efectivo = `UNK`, por lo que no se cita AUC. El alcance
-completo esta en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+En el contenedor, con 150 s de audio: inferencia secuencial **86 ms**; ráfaga de 16 peticiones
+concurrentes con p95 555 ms; arranque a readiness 1.5 s con warm-up incluido. La imagen pesa
+~70 MB, corre sin GPU y sin salida a internet, y solo depende de NumPy, FastAPI, uvicorn, pydantic
+y python-multipart.
 
 ## Equipo y procedencia
-
-Este repositorio es el entregable del equipo **Chorizos Circuits** (HackMTY 2026, track Altur) y
-reúne el trabajo de todos, no solo el del arnés.
 
 | Persona | Aporte | Dónde vive |
 |---|---|---|
 | Joaquín | Integración: arnés de evaluación, protocolo, controles de confound, bundle, `/detect`, contenedor y failover | `src/altur/`, `scripts/`, `docs/` |
-| Biniza | Modelo: auditoría forense de canal, rama prosódica (Shimmer CS3), rama espectral de referencia (LFCC), fusión tardía, calibración de referencia y stress test de robustez | `research/spectral_factory/` |
-| Ricardo | Producto e investigación; set de robustez con seis condiciones (ruido, pitch, tempo, pasa-bajas, Opus) | Condiciones portadas como perturbaciones v2 |
+| Biniza | Modelo: auditoría forense de canal, rama prosódica (Shimmer CS3), rama espectral de referencia (LFCC), fusión tardía, calibración de referencia y stress test | `research/spectral_factory/` |
+| Ricardo | Producto e investigación; set de robustez con seis condiciones (ruido, pitch, tempo, pasa-bajas, Opus) | Perturbaciones v2 |
 | Regina | UX y storytelling | Pitch |
 
-El trabajo de Biniza se desarrolló en un repositorio aparte y se incorporó aquí sin los archivos
-por llamada que contenían identificadores del dataset. Los detalles están en
-`research/spectral_factory/README.md`.
+El trabajo de Biniza se hizo en un repositorio aparte y se incorporó aquí **sin** los archivos por
+llamada que contenían identificadores del dataset (`research/spectral_factory/README.md`).
 
-## Licencia
+## Correr
 
-Pendiente de decision. [`docs/LICENSE_AUDIT.md`](docs/LICENSE_AUDIT.md) separa dependencias de
-inferencia, entrenamiento, investigacion y desarrollo sin elegir una licencia por Joaquin.
+```bash
+make setup && make test          # Python 3.12
+make serve                       # /detect en localhost:8000
+make docker && make docker-run   # la imagen de producción
+URL=http://127.0.0.1:8000 make smoke
+```
+
+`POST /detect` acepta JSON base64 (`{"audio": "<BASE64_WAV>"}`), WAV crudo (`audio/wav`) o
+multipart. `confidence` es la probabilidad calibrada **de la clase reportada**. Las entradas
+inválidas devuelven 400 sin stack trace. También hay `GET /health`, `GET /health/ready` y
+`GET /version`.
+
+## Datos y privacidad
+
+El audio, `manifest.csv`, los identificadores de llamada, los folds y las predicciones por llamada
+**no se redistribuyen**, por los términos del dataset. Solo se publican agregados.
+`make data` descarga el dataset oficial y verifica su SHA-256; `make protocol` regenera grupos y
+folds de forma determinista.
+
+Más detalle: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) ·
+[`docs/MODEL_CARD.md`](docs/MODEL_CARD.md) ·
+[`docs/DATA_PROTOCOL_CARD.md`](docs/DATA_PROTOCOL_CARD.md) ·
+[`docs/LICENSE_AUDIT.md`](docs/LICENSE_AUDIT.md).
