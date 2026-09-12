@@ -57,6 +57,14 @@ htmlcov/
 AGENTS.md
 CLAUDE.md
 docs/
+# A5 produjo documentación pensada PARA publicarse (LONG_SCOPE §9). Se exceptúa una por
+# una, en vez de dejar que entren con `add -f`: así la lista dice qué es público y qué no,
+# y añadir un doc interno nuevo a docs/ sigue siendo seguro por defecto.
+!docs/ARCHITECTURE.md
+!docs/DATA_PROTOCOL_CARD.md
+!docs/LICENSE_AUDIT.md
+!docs/MODEL_CARD.md
+!docs/RUNBOOK_FAILOVER.md
 
 # --- Configuración de herramientas de agentes ---
 .claude/
