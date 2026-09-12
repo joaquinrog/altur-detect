@@ -1,0 +1,11 @@
+schema_version: 1
+extractor: behavioral@1
+segmenter: energy@1
+feature_order:
+  - behavioral.lat_med
+  - behavioral.caller_bargein_rate
+dtype: float64
+nan_policy: reject
+split: train
+random_seed: 7
+transforms: []

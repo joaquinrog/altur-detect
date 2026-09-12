@@ -1,0 +1,21 @@
+schema_version: 1
+extractor: a2.acoustic.ch0.silence@1
+segmenter: energy@1
+feature_order:
+  - a2.acoustic.ch0.silence.band_0_300_norm
+  - a2.acoustic.ch0.silence.band_300_1000_norm
+  - a2.acoustic.ch0.silence.band_1000_2000_norm
+  - a2.acoustic.ch0.silence.band_2000_3000_norm
+  - a2.acoustic.ch0.silence.band_3000_3400_norm
+  - a2.acoustic.ch0.silence.band_3400_4001_norm
+  - a2.acoustic.ch0.silence.spectral_flatness_log
+  - a2.acoustic.ch0.silence.centroid_hz
+  - a2.acoustic.ch0.silence.rolloff85_hz
+  - a2.acoustic.ch0.silence.spectral_flux
+  - a2.acoustic.ch0.silence.energy_log_iqr
+dtype: float64
+nan_policy: reject
+split: train
+random_seed: 7
+transforms:
+  - highpass_300@1
