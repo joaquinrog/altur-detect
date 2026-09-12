@@ -25,7 +25,7 @@ def _entrenada(**kw):
 
 
 def test_cuando_las_ramas_concuerdan_la_regla_no_interviene():
-    f, S, _ = _entrenada()
+    f, _, _ = _entrenada()
     acuerdo = np.array([[0.9, 0.88], [0.1, 0.12]])
     assert np.allclose(f.transform(acuerdo), f._inner.transform(acuerdo))
 
