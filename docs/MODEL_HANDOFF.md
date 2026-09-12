@@ -227,6 +227,26 @@ metadata para calcular una feature, la feature está mal.
 2. **Un CSV de latentes por familia sin la columna `fold`.**
 3. **Decir qué familias dependen de Parselmouth**, para marcarlas `product_safe=False` y que
    Joaquín pueda cerrar la licencia.
-4. **Sacar los `anon_id` del repo público**, o volverlo privado hasta el cierre.
+4. ~~**Sacar los `anon_id` del repo público**, o volverlo privado hasta el cierre.~~ ✅ El
+   repo quedó privado (2026-09-12).
 
 Nada de esto bloquea que sigan iterando. Los cuatro se responden en una tarde.
+
+---
+
+## 9. Dónde quedó su trabajo
+
+**`altur-detect` es el único entregable del equipo:** lo que va a GitHub, a Devpost y a los jueces.
+Su repo es la **fuente**. Su trabajo ya vive aquí, en `research/spectral_factory/` (snapshot
+`9583e3a`), **sin** los 15 archivos por llamada que llevaban `anon_id` + etiqueta y con los
+ejemplos saneados. El detalle está en `research/spectral_factory/README.md`.
+
+Qué significa para ustedes:
+
+- **Pueden seguir iterando en su repo.** Lo que tenga que verse se trae a `research/` con un
+  snapshot nuevo o un PR, **nunca con CSV por llamada**: un test lo rechaza.
+- **Las seis condiciones del set de robustez ya son perturbaciones v2 del arnés**
+  (`configs/perturbations/v2.yaml`), con RNG por audio. `scripts/validate_v2_against_zip.py`
+  compara nuestra reimplementación contra el ZIP original, solo sobre `train` y solo en agregados.
+- **El CSV de latentes del §1 sigue siendo lo que cierra los controles sobre sus features.** Se
+  pasa **fuera del repo**: lleva `anon_id` + etiqueta, así que no se commitea en ningún lado.
