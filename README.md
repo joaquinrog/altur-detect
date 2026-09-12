@@ -109,6 +109,22 @@ Proveniencia de banda: `n=282`, unidad = llamada, split = train, protocolo = `of
 = `a5979a4`; seed de submuestra y digest efectivo = `UNK`, por lo que no se cita AUC. El alcance
 completo esta en [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
+## Equipo y procedencia
+
+Este repositorio es el entregable del equipo **Chorizos Circuits** (HackMTY 2026, track Altur) y
+reúne el trabajo de todos, no solo el del arnés.
+
+| Persona | Aporte | Dónde vive |
+|---|---|---|
+| Joaquín | Integración: arnés de evaluación, protocolo, controles de confound, bundle, `/detect`, contenedor y failover | `src/altur/`, `scripts/`, `docs/` |
+| Biniza | Modelo: auditoría forense de canal, rama prosódica (Shimmer CS3), rama espectral de referencia (LFCC), fusión tardía, calibración de referencia y stress test de robustez | `research/spectral_factory/` |
+| Ricardo | Producto e investigación; set de robustez con seis condiciones (ruido, pitch, tempo, pasa-bajas, Opus) | Condiciones portadas como perturbaciones v2 |
+| Regina | UX y storytelling | Pitch |
+
+El trabajo de Biniza se desarrolló en un repositorio aparte y se incorporó aquí sin los archivos
+por llamada que contenían identificadores del dataset. Los detalles están en
+`research/spectral_factory/README.md`.
+
 ## Licencia
 
 Pendiente de decision. [`docs/LICENSE_AUDIT.md`](docs/LICENSE_AUDIT.md) separa dependencias de
