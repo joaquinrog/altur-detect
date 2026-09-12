@@ -1,0 +1,32 @@
+{
+  "anon_id": "call_EXAMPLE0001",
+  "duration_s": 150.0,
+  "cold_start_timings_ms": {
+    "io_carga_audio_turns": 6.925416004378349,
+    "extraccion_prosodica_shimmer": 132.24391599942464,
+    "extraccion_espectral_lfcc": 1150.6979999976465,
+    "inferencia_rama_prosodica": 0.4677090037148446,
+    "inferencia_rama_espectral": 0.32333299168385565,
+    "fusion_tardia": 0.31754199881106615,
+    "calibracion_platt_y_formato": 0.031083007343113422,
+    "TOTAL": 1291.0069990030024
+  },
+  "warm_timings_ms": {
+    "io_carga_audio_turns": 6.343208006001078,
+    "extraccion_prosodica_shimmer": 136.72850000148173,
+    "extraccion_espectral_lfcc": 37.56220900686458,
+    "inferencia_rama_prosodica": 0.414084002841264,
+    "inferencia_rama_espectral": 0.3181249921908602,
+    "fusion_tardia": 0.2992919908137992,
+    "calibracion_platt_y_formato": 0.024959008442237973,
+    "TOTAL": 181.69037700863555
+  },
+  "peak_memory_mb_cold": 62.61667728424072,
+  "peak_memory_mb_warm": 36.631866455078125,
+  "objetivo_1s_cumplido_warm": true,
+  "objetivo_1s_cumplido_cold": false,
+  "detect_response": {
+    "is_synthetic": true,
+    "confidence": 1.0
+  }
+}

@@ -1,0 +1,7 @@
+condicion,n,auc_espectral,eer_espectral,auc_prosodica,eer_prosodica,auc_fusion,eer_fusion
+clean,353,1.0,0.58,0.8283,25.47,0.9999,0.83
+noise_snr10,353,0.9714,9.1,0.8005,28.04,0.9756,7.94
+pitch_up1st,353,0.9745,6.13,0.625,42.18,0.9652,8.52
+timestretch_0.9x,353,0.9893,5.13,0.6208,42.76,0.9845,7.36
+lowpass_3400hz,353,0.9951,2.56,0.837,22.42,0.996,2.56
+opus_16kbps,353,0.9985,1.74,0.748,29.44,0.999,2.48

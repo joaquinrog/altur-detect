@@ -1,0 +1,24 @@
+=== Analisis forense del dataset Altur (HackMTY 2026) ===
+Muestra estratificada: {'human': 40, 'synthetic': 40} (de {'human': 113, 'synthetic': 169} disponibles en train)
+Clips procesados OK: 80, fallos de carga: 0, descartados por silencio insuficiente (<0.3s): 0
+
+--- Generando graficas ---
+  [ok] 01_piso_de_ruido_psd.png
+  [ok] 02_ltas.png
+  [ok] 03_ancho_de_banda.png
+  [ok] 04_espectrogramas_grid.png
+  [ok] 05_rms_loudness.png
+  [ok] 06_zcr.png
+  [ok] 07_spectral_flatness.png
+  [info] comb_score calculado para 80 clips (ver tabla resumen)
+  [ok] 08_hum_linea_electrica.png
+
+--- Pruebas estadisticas (Mann-Whitney U + AUC de una sola feature) ---
+
+                                        feature  n_human  n_synthetic      p_value  auc_separacion veredicto
+ancho_de_banda_telefonico (in_band_energy_frac)       40           40 7.034778e-07        0.822500    normal
+                    comb_pattern_score_silencio       40           40 6.842789e-06        0.792500    normal
+                             zero_crossing_rate       40           40 7.834648e-06        0.790625    normal
+                                   rms_loudness       40           40 1.679427e-03        0.704375    normal
+                              line_hum_fraction       40           40 9.312729e-02        0.609375    normal
+                     spectral_flatness_silencio       40           40 1.422586e-01        0.595625    normal

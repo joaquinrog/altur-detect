@@ -1,0 +1,4 @@
+condicion,auc_sin_augmentacion,auc_con_augmentacion,delta,eer_con_augmentacion_pct
+clean,0.8283,0.8088,-0.0195,24.65
+pitch_up1st,0.625,0.7078,0.0828,35.4
+timestretch_0.9x,0.6208,0.6969,0.0761,34.82

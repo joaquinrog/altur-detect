@@ -1,0 +1,7 @@
+feature,n_human,n_synthetic,p_value,auc_separacion,veredicto
+ancho_de_banda_telefonico (in_band_energy_frac),40,40,7.034778413650198e-07,0.8225,normal
+comb_pattern_score_silencio,40,40,6.8427887333260734e-06,0.7925,normal
+zero_crossing_rate,40,40,7.834647644289309e-06,0.790625,normal
+rms_loudness,40,40,0.001679426766379982,0.704375,normal
+line_hum_fraction,40,40,0.09312728875772966,0.609375,normal
+spectral_flatness_silencio,40,40,0.14225859268130037,0.5956250000000001,normal
