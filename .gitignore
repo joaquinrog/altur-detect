@@ -65,6 +65,7 @@ docs/*
 !docs/ARCHITECTURE.md
 !docs/DATA_PROTOCOL_CARD.md
 !docs/LICENSE_AUDIT.md
+!docs/MODEL_HANDOFF.md
 !docs/MODEL_CARD.md
 !docs/RUNBOOK_FAILOVER.md
 
