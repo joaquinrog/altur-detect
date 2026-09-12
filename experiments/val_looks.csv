@@ -3,3 +3,6 @@ timestamp,run_id,who,reason
 2026-09-12T23:22:11Z,s11_official_check_acoustic_ch0_logreg@1_n20,"joaquin (sesión 11, OpenCode)","check_endpoint.py oficial n=20 seed 0 contra el release: aceptación del contrato. bal acc 0.864, AUC 0.990. No se ajustó nada con este resultado"
 2026-09-12T23:22:44Z,s11_official_check_bini_cd028c7_n20,"joaquin (sesión 11, OpenCode)","check_endpoint.py oficial n=20 seed 0 contra el freeze cd028c7. El freeze se entrenó con las 353 (incluye val): aceptación funcional, no métrica"
 UNK (2026-09-12 ~23:25Z),s11_bini_cd028c7_val_all_n71,"joaquin (sesión 11, OpenCode)",freeze cd028c7 sobre las 71 de val para latencia p50/p95. Mismo caveat: entrenado con val. Salida no persistida
+2026-09-12T23:55:29Z,s12_D-A7.3_C0_acoustic_ch0_logreg@1_val71,joaquin (sesión 12),"preregistro D-A7.3: check_endpoint.py oficial --split val --n 0, una sola corrida"
+2026-09-12T23:55:34Z,s12_D-A7.3_C1_bini_trainonly_fusion_132@1_val71,joaquin (sesión 12),"preregistro D-A7.3: check_endpoint.py oficial --split val --n 0, una sola corrida"
+2026-09-12T23:55:49Z,s12_D-A7.3_C2_bini_trainonly_lfcc_120@1_val71,joaquin (sesión 12),"preregistro D-A7.3: check_endpoint.py oficial --split val --n 0, una sola corrida"
