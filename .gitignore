@@ -19,6 +19,10 @@ data/
 configs/protocol/groups_v1.csv
 configs/protocol/folds_v1.json
 experiments/runs/
+.private/
+
+# --- Checkpoints locales: pueden indexar derivados privados ---
+.checkpoints/
 
 # --- Derivados pesados ---
 cache/

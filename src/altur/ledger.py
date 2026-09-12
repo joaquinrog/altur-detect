@@ -64,7 +64,15 @@ def write_run(run_id: str, payload: Mapping[str, Any], *, root: str | Path = "ex
         raise LedgerError("environment must be a mapping")
     data = _json_bytes(dict(payload))
     destination = Path(root) / f"{run_id}.json"
-    _atomic_replace(data, destination, exclusive=True)
+    try:
+        _atomic_replace(data, destination, exclusive=True)
+    except FileExistsError:
+        try:
+            existing = destination.read_bytes()
+        except OSError as exc:
+            raise LedgerError(f"cannot verify existing run: {run_id}") from exc
+        if existing != data:
+            raise LedgerError(f"run_id collision with different payload: {run_id}") from None
     return destination
 
 

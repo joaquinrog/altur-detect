@@ -18,7 +18,7 @@ dependencies = [
 [project.optional-dependencies]
 # Entrenamiento y arnés de experimentos. NO entra a la imagen desplegada.
 train = [
-    "scipy>=1.11", "scikit-learn>=1.5", "lightgbm>=4.3",
+    "setuptools>=68,<81", "scipy>=1.11", "scikit-learn>=1.5", "lightgbm>=4.3",
     "pandas>=2.2", "matplotlib>=3.6", "pyyaml>=6.0", "webrtcvad>=2.0.10",
 ]
 # Banco de experimentos. Licencias NO aptas para producto (GPL-3 / research-only):

@@ -1,3 +1,5 @@
+import hashlib
+
 import numpy as np
 import pytest
 
@@ -69,10 +71,8 @@ def test_confianza_fuera_de_rango():
 
 def test_el_wav_dorado_es_determinista(tmp_path):
     """El fixture se genera, no se commitea. Por eso su determinismo es un contrato."""
-    import hashlib
-
-    from tests.conftest import _synth
     from altur.io import write_wav
+    from tests.conftest import _synth
 
     hashes = []
     for i in range(2):

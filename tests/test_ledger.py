@@ -21,7 +21,8 @@ def test_writes_one_immutable_json_per_run_and_keeps_extra_payload(tmp_path):
     path = write_run("run-001", payload(), root=tmp_path)
     assert path == tmp_path / "run-001.json"
     assert json.loads(path.read_text()) == payload()
-    with pytest.raises(FileExistsError):
+    assert write_run("run-001", payload(), root=tmp_path) == path
+    with pytest.raises(LedgerError, match="collision"):
         write_run("run-001", payload(2), root=tmp_path)
     assert json.loads(path.read_text())["results"]["run_number"] == 1
 
@@ -56,23 +57,22 @@ def test_validates_reproducibility_fields(tmp_path, field, value):
         write_run("run", invalid, root=tmp_path)
 
 
-def test_concurrent_creation_has_one_winner(tmp_path):
+def test_concurrent_identical_creation_is_idempotent(tmp_path):
     outcomes = []
 
     def create():
         try:
             write_run("same", payload(), root=tmp_path)
             outcomes.append("created")
-        except FileExistsError:
-            outcomes.append("exists")
+        except (LedgerError, OSError) as exc:  # pragma: no cover
+            outcomes.append(type(exc).__name__)
 
     threads = [threading.Thread(target=create) for _ in range(8)]
     for thread in threads:
         thread.start()
     for thread in threads:
         thread.join()
-    assert outcomes.count("created") == 1
-    assert outcomes.count("exists") == 7
+    assert outcomes == ["created"] * 8
 
 
 def test_failed_atomic_publish_never_exposes_partial_run(tmp_path, monkeypatch):

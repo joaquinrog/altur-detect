@@ -1,6 +1,10 @@
+import json
+import os
+import threading
+
 import pytest
 
-from altur.cache import cache_key
+from altur.cache import FeatureCache, cache_key
 
 
 def cache_inputs(**overrides):
@@ -21,6 +25,7 @@ def cache_inputs(**overrides):
         "feature_order": ["centroid", "flatness"],
         "nan_policy": "reject",
         "dtype": "float64",
+        "code_digest": "sha256:v1:effective-code",
     }
     values.update(overrides)
     return values
@@ -64,6 +69,7 @@ def test_complete_key_changes_for_every_required_component():
         {"feature_order": ["flatness", "centroid"]},
         {"nan_policy": "impute_zero"},
         {"dtype": "float32"},
+        {"code_digest": "sha256:v1:changed-code"},
     ]
     assert all(cache_key(**cache_inputs(**change)) != baseline for change in variations)
 
@@ -107,3 +113,102 @@ def test_rejects_ambiguous_inputs(field, value):
 def test_requires_exactly_one_randomness_identity(randomness):
     with pytest.raises(ValueError, match="exactly one"):
         cache_key(**cache_inputs(**randomness))
+
+
+def test_persistent_cache_round_trip_and_strict_schema(tmp_path):
+    cache = FeatureCache(tmp_path)
+    key = cache_key(**cache_inputs())
+    cache.write(
+        key,
+        features={"centroid": 10.0, "flatness": 0.25},
+        diagnostics={"failed_frames": 0, "timing_ms": 1.5},
+        feature_order=("centroid", "flatness"),
+        dtype="float64",
+        nan_policy="reject",
+    )
+
+    assert cache.read(
+        key,
+        feature_order=("centroid", "flatness"),
+        dtype="float64",
+        nan_policy="reject",
+    ) == ({"centroid": 10.0, "flatness": 0.25}, {"failed_frames": 0, "timing_ms": 1.5})
+    assert cache.read(
+        key,
+        feature_order=("flatness", "centroid"),
+        dtype="float64",
+        nan_policy="reject",
+    ) is None
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), -float("inf")])
+def test_persistent_cache_rejects_non_finite_values(tmp_path, bad):
+    cache = FeatureCache(tmp_path)
+    with pytest.raises(ValueError, match="finite"):
+        cache.write(
+            "sha256:v1:" + "a" * 64,
+            features={"x.value": bad},
+            diagnostics={},
+            feature_order=("x.value",),
+            dtype="float64",
+            nan_policy="reject",
+        )
+
+
+def test_corrupt_or_partial_cache_entry_is_a_miss(tmp_path):
+    cache = FeatureCache(tmp_path)
+    key = "sha256:v1:" + "b" * 64
+    path = cache.path_for(key)
+    path.parent.mkdir(parents=True)
+    path.write_text(json.dumps({"schema_version": 1, "key": key}), encoding="utf-8")
+    assert cache.read(key, feature_order=("x.value",), dtype="float64", nan_policy="reject") is None
+
+
+def test_failed_cache_publish_never_exposes_partial_entry(tmp_path, monkeypatch):
+    cache = FeatureCache(tmp_path)
+    key = "sha256:v1:" + "c" * 64
+
+    def fail_publish(source, destination):
+        raise OSError("simulated publish failure")
+
+    monkeypatch.setattr(os, "replace", fail_publish)
+    with pytest.raises(OSError, match="publish failure"):
+        cache.write(
+            key,
+            features={"x.value": 1.0},
+            diagnostics={},
+            feature_order=("x.value",),
+            dtype="float64",
+            nan_policy="reject",
+        )
+    assert cache.read(key, feature_order=("x.value",), dtype="float64", nan_policy="reject") is None
+
+
+def test_concurrent_identical_cache_writers_publish_one_complete_entry(tmp_path):
+    cache = FeatureCache(tmp_path)
+    key = "sha256:v1:" + "d" * 64
+    errors = []
+
+    def write():
+        try:
+            cache.write(
+                key,
+                features={"x.value": 1.0},
+                diagnostics={"ok": True},
+                feature_order=("x.value",),
+                dtype="float64",
+                nan_policy="reject",
+            )
+        except (OSError, TypeError, ValueError) as exc:  # pragma: no cover
+            errors.append(exc)
+
+    threads = [threading.Thread(target=write) for _ in range(8)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+
+    assert errors == []
+    assert cache.read(
+        key, feature_order=("x.value",), dtype="float64", nan_policy="reject"
+    ) == ({"x.value": 1.0}, {"ok": True})
