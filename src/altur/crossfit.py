@@ -327,3 +327,96 @@ def make_nested_fit_predict(
         return scores, float(thr), {"audit": auditoria}
 
     return fit_predict
+
+
+class DisagreementFusion:
+    """Backbone acústico + booster conductual + regla de desacuerdo.
+
+    La decisión de arquitectura del plan: cuando las ramas discrepan fuerte, **gana el
+    backbone y baja la confianza**. No se promedia, porque promediar dos ramas que se
+    contradicen produce un 0.5 que se lee como "duda calibrada" cuando en realidad es
+    "una de las dos está muy equivocada y no sé cuál".
+
+    Dos parámetros, con estatus distinto y declarado:
+
+    - `delta_` — **se aprende** dentro del cross-fitting: el cuantil `q` de los desacuerdos
+      observados en los scores OOF internos. Así "discrepan fuerte" significa "más que el
+      q % de los casos de este fold", no un número inventado.
+    - `shrink` — **se declara**, no se optimiza. Es política de producto: cuánta confianza
+      se cede cuando el sistema sabe que sus ramas no se entienden. Optimizarlo sobre AUC
+      con n=282 sería ajustar una decisión de producto a ruido muestral.
+    """
+
+    name = "disagreement@1"
+
+    def __init__(
+        self,
+        backbone: str = "acoustic",
+        *,
+        quantile: float = 0.90,
+        shrink: float = 0.5,
+        l2: float = 1.0,
+    ) -> None:
+        if not 0.0 < quantile < 1.0:
+            raise ModelError("quantile debe estar en (0, 1)")
+        if not 0.0 <= shrink <= 1.0:
+            raise ModelError("shrink debe estar en [0, 1]")
+        self.backbone = str(backbone)
+        self.quantile = float(quantile)
+        self.shrink = float(shrink)
+        self._inner = LogisticFusion(l2=l2)
+        self.delta_: float | None = None
+        self.branch_names_: tuple[str, ...] = ()
+        self._bb: int | None = None
+
+    def fit(self, S: np.ndarray, y: np.ndarray, branch_names: Sequence[str]) -> "DisagreementFusion":
+        nombres = tuple(branch_names)
+        if self.backbone not in nombres:
+            raise ModelError(f"backbone {self.backbone!r} no está entre las ramas {nombres}")
+        if len(nombres) < 2:
+            raise ModelError("la regla de desacuerdo necesita al menos dos ramas")
+        self.branch_names_ = nombres
+        self._bb = nombres.index(self.backbone)
+        self._inner.fit(S, y, nombres)
+        X = np.asarray(S, dtype=np.float64)
+        self.delta_ = float(np.quantile(self._spread(X), self.quantile))
+        return self
+
+    def _spread(self, X: np.ndarray) -> np.ndarray:
+        """Desacuerdo = distancia máxima entre el backbone y cualquier otra rama."""
+        otras = [j for j in range(X.shape[1]) if j != self._bb]
+        return np.max(np.abs(X[:, otras] - X[:, [self._bb]]), axis=1)
+
+    def transform(self, S: np.ndarray) -> np.ndarray:
+        if self.delta_ is None:
+            raise ModelError("la fusión no está ajustada")
+        X = np.asarray(S, dtype=np.float64)
+        if X.ndim != 2 or X.shape[1] != len(self.branch_names_):
+            raise ModelError(f"S {X.shape} no cuadra con {len(self.branch_names_)} ramas")
+        fusionado = self._inner.transform(X)
+        discrepan = self._spread(X) > self.delta_
+        backbone = X[:, self._bb]
+        # Se conserva la DECISIÓN del backbone (de qué lado de 0.5 cae) y se encoge hacia
+        # 0.5 la distancia, que es exactamente "el veredicto es suyo, la confianza baja".
+        atenuado = 0.5 + self.shrink * (backbone - 0.5)
+        return np.where(discrepan, atenuado, fusionado)
+
+    def to_dict(self) -> dict[str, Any]:
+        if self.delta_ is None:
+            raise ModelError("la fusión no está ajustada")
+        return {
+            "name": self.name,
+            "branches": list(self.branch_names_),
+            "backbone": self.backbone,
+            "delta": self.delta_,
+            "delta_source": f"cuantil {self.quantile} del desacuerdo OOF interno",
+            "shrink": self.shrink,
+            "shrink_source": "declarado, no optimizado",
+            "inner": self._inner.to_dict(),
+        }
+
+
+@fusions.register("disagreement", version=1)
+def disagreement_fusion(**kwargs: Any) -> DisagreementFusion:
+    """Backbone + booster con regla de desacuerdo. NumPy puro."""
+    return DisagreementFusion(**kwargs)
