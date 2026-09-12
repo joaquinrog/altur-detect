@@ -15,7 +15,15 @@ import pytest
 
 # --------------------------------------------------------------------- contrato oficial
 def test_contrato_exacto(client, golden_b64):
-    r = client.post("/detect", json={"audio": golden_b64})
+    r = client.post(
+        "/detect",
+        json={
+            "call_id": "call_TEST0001",
+            "audio_base64": golden_b64,
+            "sample_rate": 8000,
+            "channels": 2,
+        },
+    )
     assert r.status_code == 200
     body = r.json()
     assert set(body) == {"is_synthetic", "confidence"}, "por defecto solo los campos oficiales"
@@ -30,9 +38,9 @@ def test_reporta_latencia_en_cabecera(client, golden_b64):
 
 
 # ------------------------------------------------------------------ tolerancia de entrada
-@pytest.mark.parametrize("campo", ["audio", "audio_base64", "audio_data", "wav", "data", "b64", "file"])
+@pytest.mark.parametrize("campo", ["audio", "audio_data", "wav", "data", "b64", "file"])
 def test_alias_del_campo(client, golden_b64, campo):
-    """El PDF no fija el nombre del campo (UNK). Aceptar alias es seguro barato."""
+    """Los alias no oficiales siguen disponibles sin desplazar `audio_base64`."""
     assert client.post("/detect", json={campo: golden_b64}).status_code == 200
 
 

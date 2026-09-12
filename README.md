@@ -5,8 +5,17 @@ estéreo a 8 kHz y decide si el **caller** (canal 0) es humano o sintético. Hac
 Altur, equipo **Chorizos Circuits**.
 
 ```json
-{"is_synthetic": true, "confidence": 0.87}
+{
+  "call_id": "call_...",
+  "audio_base64": "<WAV completo en base64>",
+  "sample_rate": 8000,
+  "channels": 2
+}
 ```
+
+La respuesta es `{"is_synthetic": true, "confidence": 0.87}`. El booleano es obligatorio;
+`confidence` es opcional para el contrato, pero este servicio siempre la entrega para que el juez
+reporte AUC, calibración y desempates.
 
 ## Enfoque
 
@@ -71,10 +80,14 @@ make docker && make docker-run   # la imagen de producción
 URL=http://127.0.0.1:8000 make smoke
 ```
 
-`POST /detect` acepta JSON base64 (`{"audio": "<BASE64_WAV>"}`), WAV crudo (`audio/wav`) o
-multipart. `confidence` es la probabilidad calibrada **de la clase reportada**. Las entradas
-inválidas devuelven 400 sin stack trace. También hay `GET /health`, `GET /health/ready` y
-`GET /version`.
+El contrato oficial de `POST /detect` es una llamada por petición con `call_id`, `audio_base64`,
+`sample_rate: 8000` y `channels: 2`; `audio_base64` contiene los bytes exactos del WAV completo.
+El servicio también tolera WAV crudo y multipart, pero el camino oficial es el JSON anterior.
+`confidence` es la probabilidad calibrada **de la clase reportada**. El juez permite 30 segundos
+por llamada, las llamadas duran de 1 a 4 minutos y el body llega a unos 5 MB. Un timeout, status
+distinto de 200 o respuesta sin `is_synthetic` booleano cuenta como error. La métrica principal es
+balanced accuracy sobre callers y voces no vistos. También hay `GET /health`,
+`GET /health/ready` y `GET /version`.
 
 ## Datos y privacidad
 

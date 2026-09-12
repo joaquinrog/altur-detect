@@ -72,6 +72,12 @@ def main() -> int:
     base = args.url.rstrip("/")
     wav = _golden()
     b64 = base64.b64encode(wav).decode()
+    official = {
+        "call_id": "call_SMOKE0001",
+        "audio_base64": b64,
+        "sample_rate": 8000,
+        "channels": 2,
+    }
     fails = 0
 
     print(f"\n== {base} ==\n")
@@ -88,8 +94,8 @@ def main() -> int:
 
     print()
     casos = [
-        ("json audio",     json.dumps({"audio": b64}).encode(), "application/json", 200),
-        ("json wav alias", json.dumps({"wav": b64}).encode(),   "application/json", 200),
+        ("json oficial",   json.dumps(official).encode(),        "application/json", 200),
+        ("json alias",     json.dumps({"audio": b64}).encode(), "application/json", 200),
         ("wav crudo",      wav,                                  "audio/wav",        200),
         ("sin campo",      b"{}",                                "application/json", 400),
         ("base64 malo",    json.dumps({"audio": "!!!!"}).encode(), "application/json", 400),
@@ -109,13 +115,13 @@ def main() -> int:
             print(f"       ⚠️  campos inesperados: {set(body)}")
 
     print()
-    tiempos = [_req(f"{base}/detect", json.dumps({"audio": b64}).encode(),
+    tiempos = [_req(f"{base}/detect", json.dumps(official).encode(),
                     "application/json")[2] for _ in range(args.n_latency)]
     tiempos.sort()
     p50 = statistics.median(tiempos)
     p95 = tiempos[min(len(tiempos) - 1, int(0.95 * len(tiempos)))]
     print(f"  latencia n={len(tiempos)}  p50 {p50:.1f} ms  p95 {p95:.1f} ms  max {max(tiempos):.1f} ms")
-    print("  ⚠️  audio de prueba de 6 s; el presupuesto real es <1 s para 150 s de audio\n")
+    print("  audio de prueba de 6 s; el juez permite 30 s para llamadas de 1 a 4 min\n")
 
     print("RESULTADO:", "todo OK" if fails == 0 else f"{fails} fallo(s)")
     return 1 if fails else 0

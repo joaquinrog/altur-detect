@@ -26,8 +26,8 @@ from .types import Prediction
 
 log = logging.getLogger("altur.api")
 
-# Nombres plausibles del campo del payload. El PDF no lo fija (UNK, notes/01 §6);
-# aceptar alias es seguro barato contra el modo de falla que mata la ronda automatizada.
+# `audio_base64` es el campo oficial. Los alias se conservan como tolerancia secundaria;
+# el smoke y los tests de aceptación usan siempre el contrato exacto del juez.
 AUDIO_FIELDS = ("audio", "audio_base64", "audio_data", "wav", "wav_base64", "data", "b64", "file")
 
 
@@ -172,7 +172,6 @@ async def detect(request: Request) -> Response:
     if det is None:
         return _error("not_ready", "el detector no está cargado", status.HTTP_503_SERVICE_UNAVAILABLE)
 
-    t0 = time.perf_counter()
     try:
         raw = await _extract_audio_bytes(request)
         decoded = decode(raw, allow_mono=s.allow_mono, allow_resample=s.allow_resample)
@@ -182,6 +181,8 @@ async def detect(request: Request) -> Response:
         log.exception("fallo inesperado decodificando")
         return _error("decode_failed", "no se pudo leer el audio", status.HTTP_400_BAD_REQUEST)
 
+    # La cabecera mide el trabajo del modelo, no la subida ni el parseo del JSON.
+    t0 = time.perf_counter()
     try:
         pred: Prediction = det.predict(decoded.example)
     except Exception:

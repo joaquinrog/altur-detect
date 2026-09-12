@@ -2,7 +2,7 @@
 
 Dos piezas, dos fuentes:
 
-  - `manifest.csv` + `turns/` viven en el REPO (github.com/alturio/hackmty26, commit 26b5195).
+  - `manifest.csv` + `turns/` viven en el REPO (github.com/alturio/hackmty26, commit 429adf7).
   - `audio/*.wav` vive en el RELEASE v1.0, como `altur-challenge-audio.zip` (671 MB).
 
 El SHA-256 del zip esta congelado abajo. **Verificarlo no es ceremonia**: el asset se sirve
@@ -32,7 +32,7 @@ import zipfile
 from pathlib import Path
 
 REPO = "alturio/hackmty26"
-COMMIT = "26b5195"
+COMMIT = "429adf76b15d1bd18e26b50f371ca4f13b0585c0"
 RELEASE_TAG = "v1.0"
 ASSET = "altur-challenge-audio.zip"
 

@@ -1,5 +1,12 @@
 # MODEL_HANDOFF — el contrato entre `altur-detect` y el repo del modelo
 
+> **Actualización 2026-09-12:** Bini congeló el candidato productivo en `cd028c7`. Incluye entrada
+> WAV, VAD no-oracle, pesos/scalers, 132 features y Platt. Con el cliente oficial responde en
+> forma y en tiempo (n=20, máximo 1.590 s). Su balanced accuracy de 1.0 **no mide
+> generalización**: el freeze se entrenó con las 353 llamadas, incluidas las de `val`. Antes de
+> promoverlo hay que medirlo entrenado solo con `train` y resolver que depende de Parselmouth
+> GPLv3 y pickle/sklearn; ver D-A7.2.
+
 > **Qué es esto.** La otra mitad del equipo construye el modelo en
 > `binivazqua/chorizos-circuits-spectral-factory`. Este repo es el arnés: evalúa, calibra,
 > empaqueta y sirve. Este documento fija los formatos exactos de la frontera, para que nadie
