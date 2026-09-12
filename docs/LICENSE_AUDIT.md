@@ -74,6 +74,38 @@ porque es un veto de producto explicito y una posible herramienta de investigaci
 - **INF:** una licencia permisiva de una dependencia no elimina sus obligaciones de copyright y
   notice.
 
+## 🔴 El caso no es hipotetico: el repo del modelo ya importa Parselmouth
+
+**OBS.** La otra mitad del equipo construye el modelo en el repo publico
+`binivazqua/chorizos-circuits-spectral-factory`. Su rama prosodica usa
+`praat-parselmouth` **dentro del camino de inferencia** desde el commit
+*"Fix latency bottleneck: replace pyin with parselmouth in prosodic branch"* (2026-09-12).
+
+Esto cambia el estatus de todo lo de arriba. En este repo Parselmouth vive en el extra
+`research`, que no se instala ni se distribuye — un riesgo evitado. En el suyo ya es una
+dependencia de ejecucion de una rama que, si entra al bundle, entra a la imagen.
+
+**INF.** Mientras esa rama sea candidata a produccion, la eleccion de licencia no es libre:
+o se resuelve la dependencia, o la opcion permisiva queda descartada por construccion.
+
+**OBS — el argumento por el que la metieron ya no se sostiene solo.** Su
+`CONTRATOS.md` justifica el cambio con un pipeline de ~7.5 s contra un objetivo de <1 s. Ese
+numero esta viejo: su propio `persona1_reference_calibration/data/latency_benchmark.json` mide
+**181 ms en warm** y 1291 ms en cold sobre una llamada de 150 s, con 62 MB de pico. El objetivo
+de <1 s ya se cumple en warm.
+
+**Las tres salidas, y lo que cuesta cada una:**
+
+| Salida | Consecuencia |
+|---|---|
+| La rama prosodica **no entra al bundle** | La imagen sigue permisiva y minima. Se pierde el eje prosodico en produccion; queda como diagnostico. Es coherente con D-A2.2, que ya degrado el eje conductual a diagnostico por otra razon. |
+| **Reimplementar shimmer** sin Parselmouth | Conserva el eje y la licencia permisiva. Cuesta tiempo de ingenieria y hay que re-validar que el shimmer reimplementado mide lo mismo. El benchmark sugiere que el presupuesto de latencia da margen. |
+| Aceptar **GPL-3 para todo** | Desbloquea la rama tal cual, pero obliga a distribuir todo el codigo correspondiente bajo GPL y debilita el argumento de Feasibility ("podria un banco desplegar esto") que sostiene la imagen minima. |
+
+**Quien decide:** Joaquin. **Cuando:** antes de A4.1, porque el bundle es donde la frontera se
+vuelve fisica — `registry.audit_product_safety()` rechaza `product_safe=False` y no hay forma de
+empaquetar la rama sin tomar la decision primero.
+
 ## Opciones para decision de Joaquin
 
 | Opcion viable | Consecuencia |

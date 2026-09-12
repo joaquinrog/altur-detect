@@ -56,7 +56,9 @@ htmlcov/
 # persona o a otra máquina: `make docs-pack`.
 AGENTS.md
 CLAUDE.md
-docs/
+# Ojo: tiene que ser `docs/*` y no `docs/`. Git no puede re-incluir un archivo si el
+# DIRECTORIO padre esta excluido, asi que con `docs/` las excepciones de abajo no aplican.
+docs/*
 # A5 produjo documentación pensada PARA publicarse (LONG_SCOPE §9). Se exceptúa una por
 # una, en vez de dejar que entren con `add -f`: así la lista dice qué es público y qué no,
 # y añadir un doc interno nuevo a docs/ sigue siendo seguro por defecto.
