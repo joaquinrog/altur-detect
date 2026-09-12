@@ -1,9 +1,9 @@
 {
   "calibrator_file": "calibrator.json",
   "calibrator_ref": "platt@1",
-  "code_digest": "sha256:v1:ab30fbf07f862d80211f3d8b7a34fec990f99f1b01a644f9705058b1e5b35006",
+  "code_digest": "sha256:v1:a7b41d82cb9047b1f1b20ed0233de680097eb0c21143eb447d3104394bc2daba",
   "confidence_policy": "calibrated_probability_of_reported_class",
-  "created_utc": "2026-09-12T18:05:52+00:00",
+  "created_utc": "2026-09-12T18:41:28+00:00",
   "data_fingerprint": "0dc1ec4c9bc5c274470984096a8a9a0b0454bc708d396bd5b2c8b4ba01e5a906",
   "detector_name": "acoustic_ch0_logreg@1",
   "extractor_refs": [
@@ -27,8 +27,8 @@
     "model.json": "07b42047274dcc51d0af339ff20cba45c8593c4aba2f7715313b482a4525a779",
     "requirements.lock": "d1e0e394c5f09ef694967dc1e993ef6b602372db15be7805ca412c096a205a33"
   },
-  "git_commit": "ab61f5dfd7e7681aee1aa259f895211bb482a63b",
-  "git_dirty": true,
+  "git_commit": "3a493aa30eecb4c9ad81b7c5b42a433b3aa04bd5",
+  "git_dirty": false,
   "limitations": [
     "OBS: el control de confound sale POSITIVO en los dos ejes (D-A3.6). El canal del agente, mismo TTS en ambas clases, separa con AUC 0.6409 [0.573, 0.707]; el silencio solo da 0.9662 con AUC de escala 0.0157. Parte grande de este numero mide la cadena de produccion, no la voz.",
     "OBS: a 5 s de audio el AUC OOF es 0.4012 con IC95 [0.328, 0.460] -- invertido, no indeciso -- y la confianza media es la mas alta de la curva. Por eso la parada temprana esta PROHIBIDA (D-A3.8) y min_seconds_declared es 20 s.",
@@ -53,7 +53,7 @@
   "min_seconds_declared": 20.0,
   "model_file": "model.json",
   "protocol_id": "official_v1",
-  "run_id": "sha256-v1-418ad502df30f19d0421e2ff490641525901d3f09251afb736dc4e341ac15bcd",
+  "run_id": "sha256-v1-0284d04eedc41cc5649d9c473929f8ffc1c94d3b14798ccabef03bda0884d11d",
   "schema_version": 2,
   "segmenter_ref": "energy@1",
   "threshold": 0.6530611626245524,
