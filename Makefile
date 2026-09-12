@@ -5,7 +5,8 @@ PORT    ?= 8000
 URL     ?= http://127.0.0.1:$(PORT)
 IMAGE   ?= altur-detect:local
 
-.PHONY: help setup test lint serve smoke docker docker-run bundle-test docs-pack clean
+.PHONY: help setup test lint serve smoke docker docker-run bundle-test docs-pack clean \
+	data protocol leak-test
 
 help:  ## Muestra esta ayuda
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | \
@@ -19,6 +20,15 @@ setup:  ## venv + dependencias (inferencia + dev)
 
 setup-train:  ## Dependencias del arnés de entrenamiento (NO van a la imagen)
 	$(PIP) install -q -e ".[dev,train]"
+
+data:  ## descarga el dataset oficial y verifica el SHA-256
+	$(PY) scripts/download_data.py
+
+protocol:  ## congela grupos y folds (determinista; corre despues de `make data`)
+	$(PY) scripts/build_protocol.py
+
+leak-test:  ## permuta etiquetas y verifica que el AUC cae a ~0.5
+	$(PY) scripts/leak_test.py
 
 test:  ## pytest
 	$(PY) -m pytest

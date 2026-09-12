@@ -11,6 +11,15 @@ data/
 # sin que nadie lo note en el diff. Generarlo es reproducible y no se puede contaminar.
 # (Nota: .gitignore NO admite comentarios al final de línea; van en su propia línea.)
 
+# --- Derivados del dataset: llevan anon_id, no se publican ---
+# groups_v1.csv y folds_v1.json listan los 353 anon_id, y folds_v1.json ademas lleva la
+# asignacion de folds, que se deriva de las etiquetas. Por la regla 2 de AGENTS.md eso es
+# dataset. No se pierde comparabilidad: `scripts/build_protocol.py` es determinista, asi
+# que el mismo commit produce los mismos bytes en las tres maquinas, y `--verify` lo prueba.
+configs/protocol/groups_v1.csv
+configs/protocol/folds_v1.json
+experiments/runs/
+
 # --- Derivados pesados ---
 cache/
 models/scratch/
