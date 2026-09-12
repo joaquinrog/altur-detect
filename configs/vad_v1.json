@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "origin": "pre_registered",
+  "tuned_on_current_train": false,
+  "segmenters": {
+    "energy@1": {
+      "threshold_db_above_noise_floor": 12,
+      "pad_ms": 30,
+      "merge_gap_ms": 450,
+      "min_length_ms": 200
+    },
+    "webrtc@1": {
+      "mode": 2,
+      "frame_ms": 20,
+      "padding_ms": 300,
+      "hysteresis": 0.9
+    }
+  }
+}
