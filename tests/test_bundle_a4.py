@@ -155,10 +155,16 @@ def test_el_manifest_no_lleva_anon_id(built: Path):
     assert bundle_mod.scrub_problems(texto) == []
 
 
+# Un id con la forma real (`call_` + hex) pero inventado. Se arma en tiempo de ejecución para
+# que ningún literal con forma de anon_id viva en el código: el historial se audita con grep
+# (D-A5.2) y un id real ya se coló una vez por un test (D-A4.6).
+_FAKE_ANON_ID = "call_" + "0" * 12
+
+
 @pytest.mark.parametrize(
     "payload,esperado",
     [
-        ('{"nota": "call_EXAMPLE0001"}', "anon_id"),
+        (f'{{"nota": "{_FAKE_ANON_ID}"}}', "anon_id"),
         ('{"nota": "/home/joaquinrog/altur"}', "ruta local"),
         ('{"registry_token": "abc"}', "secreto"),
     ],
@@ -170,7 +176,7 @@ def test_el_scrub_caza_lo_que_no_se_publica(payload: str, esperado: str):
 
 def test_no_se_sella_un_manifest_impublicable(tmp_path: Path):
     d = tmp_path / "b"
-    m = _manifest(run_id="call_EXAMPLE0001")
+    m = _manifest(run_id=_FAKE_ANON_ID)
     with pytest.raises(bundle_mod.BundleError, match="anon_id"):
         bundle_mod.build_bundle(d, export=_export(), manifest=m, calibrator=_calibrator())
 

@@ -2,6 +2,10 @@
 # Los términos de Altur prohíben redistribuir. manifest.csv también es dataset:
 # lleva anon_id, label y split.
 data/
+# research/ trae agregados SIN ids en sus carpetas data/ (D-A5.1). Se re-incluye el directorio,
+# no los archivos: git no re-incluye un archivo si su padre está excluido. El guard test
+# tests/test_research_sin_ids.py falla si se cuela un identificador.
+!research/**/data/
 *.wav
 *.zip
 
