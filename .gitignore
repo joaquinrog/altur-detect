@@ -67,6 +67,7 @@ docs/*
 !docs/LICENSE_AUDIT.md
 !docs/MODEL_HANDOFF.md
 !docs/MODEL_CARD.md
+!docs/PORT_SPEC_SPECTRAL_FACTORY.md
 !docs/RUNBOOK_FAILOVER.md
 
 # --- Configuración de herramientas de agentes ---
