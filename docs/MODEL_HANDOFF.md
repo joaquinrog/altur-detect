@@ -45,9 +45,19 @@ Reglas del archivo:
 | Sin NaN, sin inf | Nuestro `nan_policy` es `reject`. Un NaN aborta la corrida, no se imputa en silencio |
 | **El orden de columnas es el contrato** | Se congela en un YAML de `configs/experiments/`. Si el orden cambia entre corridas, los resultados no son comparables y la caché no lo detecta |
 
-> 🔴 **Lo que más nos urge saber de ustedes:** si el orden de columnas de su `build_*.py` sale
-> de un `dict`, un `glob` o un `set`, no es estable entre corridas. Díganlo y lo congelamos
-> nosotros; es más barato que descubrirlo el domingo.
+> ✅ **Resuelto** (ver [`PORT_SPEC_SPECTRAL_FACTORY.md`](PORT_SPEC_SPECTRAL_FACTORY.md)).
+> **FACT:** el orden de **columnas** sí es determinista — sale de la inserción en dos dicts
+> construidos por loops deterministas, no de un glob, y Python conserva ese orden.
+>
+> **OBS:** el orden de **filas** NO es determinista: `Pool.imap_unordered()` entrega por orden
+> de finalización y el builder agrega en ese orden. A nosotros no nos afecta porque unimos por
+> `anon_id`, pero invalida cualquier indexado posicional — si alguien compara dos CSV fila a
+> fila, está comparando llamadas distintas.
+>
+> **OBS 🔴, y este sí es un bug:** `TelephonyAugmenter` construye `self._rng` desde la semilla,
+> pero `add_gaussian_noise()` usa `np.random.normal` global. **La semilla declarada no controla
+> el ruido**, así que sus números de robustez no son reproducibles. No se porta ese
+> comportamiento; en nuestro arnés el RNG se deriva por audio y hay test que lo comprueba.
 
 ### Si prefieren entregar scores en vez de features
 
@@ -212,8 +222,8 @@ metadata para calcular una feature, la feature está mal.
 
 ## 8. Lo que necesitamos de ustedes, en orden
 
-1. **Confirmar si el orden de columnas de sus `build_*.py` es determinista.** Es lo único que
-   puede invalidar una corrida entera en silencio.
+1. ~~Confirmar si el orden de columnas es determinista.~~ ✅ Resuelto: las columnas sí, las
+   filas no, y la semilla del augmenter no controla su ruido. Ver `PORT_SPEC_SPECTRAL_FACTORY.md`.
 2. **Un CSV de latentes por familia sin la columna `fold`.**
 3. **Decir qué familias dependen de Parselmouth**, para marcarlas `product_safe=False` y que
    Joaquín pueda cerrar la licencia.
