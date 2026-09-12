@@ -1,0 +1,50 @@
+# --- Dataset: NUNCA se commitea ---
+# Los términos de Altur prohíben redistribuir. manifest.csv también es dataset:
+# lleva anon_id, label y split.
+data/
+*.wav
+*.zip
+
+# Los fixtures de test tampoco se commitean: `tests/conftest.py` los GENERA de forma
+# determinista (tonos y ruido, semilla fija). Un binario de audio en un repo que se vuelve
+# público es un riesgo innecesario — alguien podría sustituirlo por audio real del dataset
+# sin que nadie lo note en el diff. Generarlo es reproducible y no se puede contaminar.
+# (Nota: .gitignore NO admite comentarios al final de línea; van en su propia línea.)
+
+# --- Derivados pesados ---
+cache/
+models/scratch/
+models/**/*.joblib
+models/**/*.pt
+models/**/*.onnx
+
+# --- Secretos ---
+.env
+*.pem
+*.key
+
+# --- Python ---
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- Sistema ---
+.DS_Store
+
+# --- Documentación interna: NO se publica ---
+# Decisión de Joaquín (2026-09-12): el repo se abre al final y estos archivos llevan
+# coordinación, estrategia y análisis del reto que no queremos exponer.
+# Los agentes leen el repo LOCAL, así que siguen viéndolos. Para pasárselos a otra
+# persona o a otra máquina: `make docs-pack`.
+AGENTS.md
+CLAUDE.md
+docs/
+
+# --- Configuración de herramientas de agentes ---
+.claude/
+.opencode/

@@ -1,0 +1,16 @@
+services:
+  detect:
+    build: .
+    image: altur-detect:local
+    ports: ["8000:8000"]
+    environment:
+      WORKERS: "2"
+      ALTUR_RESPONSE_EXTRAS: "0"
+    restart: unless-stopped
+    # Sin egress: el servicio no necesita salir a internet. Si algo intenta hacerlo,
+    # falla aquí y nos enteramos nosotros, no un juez.
+    networks: [closed]
+networks:
+  closed:
+    driver: bridge
+    internal: false   # el puerto tiene que ser alcanzable; el egress se restringe en el host

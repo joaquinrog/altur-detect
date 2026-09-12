@@ -1,0 +1,45 @@
+[project]
+name = "altur-detect"
+version = "0.1.0"
+description = "Detección de voz sintética en llamadas telefónicas a 8 kHz — HackMTY 2026, track Altur"
+requires-python = ">=3.12"
+
+# Dependencias del CAMINO DE INFERENCIA. Deliberadamente mínimas: sin scipy, sin sklearn,
+# sin libsndfile, sin torch. Es lo que hace la imagen chica y autocontenida, y es el
+# argumento de Feasibility ("¿podría un banco desplegar esto?") demostrado, no afirmado.
+dependencies = [
+    "numpy>=1.26,<3",
+    "fastapi>=0.115,<1",
+    "uvicorn[standard]>=0.30,<1",
+    "pydantic>=2.7,<3",
+    "python-multipart>=0.0.9",   # multipart en /detect; el PDF no fija el formato del payload
+]
+
+[project.optional-dependencies]
+# Entrenamiento y arnés de experimentos. NO entra a la imagen desplegada.
+train = [
+    "scipy>=1.11", "scikit-learn>=1.5", "lightgbm>=4.3",
+    "pandas>=2.2", "matplotlib>=3.6", "pyyaml>=6.0", "webrtcvad>=2.0.10",
+]
+# Banco de experimentos. Licencias NO aptas para producto (GPL-3 / research-only):
+# el empaquetado rechaza congelar extractores que dependan de esto.
+research = ["praat-parselmouth>=0.4", "librosa>=0.10"]
+# Camino B (R5: NO-GO, solo experimento-gate). El núcleo nunca importa torch.
+torch = ["torch>=2.3"]
+dev = ["pytest>=8.0", "httpx>=0.27", "ruff>=0.6"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests", "scripts"]
