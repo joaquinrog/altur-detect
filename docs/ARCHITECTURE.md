@@ -147,6 +147,6 @@ commit = `a5979a4`; digest de codigo efectivo = **UNK** en el registro heredado.
 este borrador no cita el AUC ni eleva el corte a metrica reproducible. **TODO(A3/integrador):**
 enlazar el artefacto con seed y digest antes de cualquier claim cuantitativo publico.
 
-La interpretacion sigue pendiente de la pregunta 4 del booth: que TTS, `output_format` y cadena
-telefonica produjeron el caller sintetico. Hasta resolverla, no se atribuye la separacion a
-fisiologia vocal ni a capacidad cross-vendor.
+**FACT (Altur, verbal):** el caller sintetico sale de un solo proveedor TTS comercial (dos
+modelos), grabado por telefonia real. El `output_format` del TTS sigue **UNK**, asi que la causa del corte no
+esta cerrada. No se atribuye la separacion a fisiologia vocal ni a capacidad cross-vendor.

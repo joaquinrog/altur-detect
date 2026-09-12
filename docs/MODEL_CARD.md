@@ -72,9 +72,9 @@ No completar una celda sin un artefacto reproducible.
 2. **D-A1.5:** la prevalencia cambia: train 59.9 % sintetico frente a val 47.9 %. El prior oculto
    es `UNK`; la confianza puede trasladarse mal.
 3. **D-A1.6:** las clases tienen cadenas de produccion distintas. El sintetico corta alrededor de
-   3400 Hz y el humano llega a Nyquist; un AUC alto puede medir cadena, no voz. La causa depende de
-   la pregunta 4 del booth y sigue `UNK`.
-4. El dataset oficial no demuestra generalizacion cross-vendor.
+   3400 Hz y el humano llega a Nyquist; un AUC alto puede medir cadena, no voz. Altur confirmo
+   un solo proveedor TTS grabado por telefonia; el `output_format` y la causa del corte siguen `UNK`.
+4. El dataset oficial no demuestra generalizacion cross-vendor: todo el sintetico sale de un solo proveedor TTS.
 5. La rama conductual mide un proxy de la etiqueta y puede fallar con replay humano, humanos
    lentos o agentes de voz rapidos.
 6. **TODO(A3):** documentar fallos del extractor por clase y modos degradados del candidato.

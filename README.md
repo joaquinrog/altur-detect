@@ -38,8 +38,10 @@ El 0.978 hay que leerlo con dos controles que corrimos contra nosotros mismos:
   intacto, cambia el 2 % de los veredictos. Las features conductuales no suman (+0.0015, dentro
   del intervalo), así que el bundle es solo acústico.
 
-No afirmamos que el número transfiera a voces, motores o cadenas telefónicas no vistos. Es el modo
-de falla documentado del campo, y el set oculto está hecho de eso.
+No afirmamos que el número transfiera a motores o cadenas telefónicas no vistos: todo el sintético
+del dataset sale de un solo proveedor TTS, y el colapso fuera de dominio es el modo de falla
+documentado del campo. El set oculto comparte ese proceso de generación, pero con callers y voces
+que no aparecen en ningún split.
 
 ## Rendimiento
 

@@ -16,6 +16,19 @@ identificadores, turns, grupos ni asignaciones de fold. No se intenta identifica
 La clase positiva es `synthetic = 1`. La etiqueta responde si la voz del caller es sintetica; no
 es una etiqueta de replay, liveness, fraude, identidad ni comportamiento conversacional.
 
+## Generacion del caller sintetico
+
+**FACT (Altur, verbal, 2026-09-12):** todas las voces sinteticas salen de un solo proveedor TTS
+comercial, con dos modelos combinados con varios LLMs, y se grabaron a traves de telefonia real. La clase sintetica no incluye replay de voz humana.
+El `output_format` del TTS es **UNK**.
+
+**FACT (Altur, verbal):** la duracion minima es de alrededor de un minuto, y el set oculto
+(~30 % reservado) sale del mismo proceso de generacion. **FACT (README oficial):** sus callers y
+voces no aparecen en ningun split.
+
+**Consecuencia:** el dataset cubre un solo proveedor TTS. Ningun resultado sobre el se presenta
+como generalizacion a otros proveedores.
+
 ## Separacion de metadatos
 
 `DatasetRecord` conserva metadatos para el arnes. `AudioExample` contiene solo audio y es el unico
@@ -70,9 +83,9 @@ Metadatos disponibles: `n=282`; unidad = llamada; split = `train`; protocolo = `
 seed de la submuestra espectral = **UNK**; commit = `a5979a4`; digest efectivo = **UNK**. No se
 cita aqui el AUC heredado porque su registro no satisface aun la proveniencia publica exigida.
 
-Consecuencia **INF:** un AUC alto puede medir codec, filtrado o captura en vez de voz. La causa
-queda pendiente de la pregunta 4 del booth sobre TTS, `output_format` y cadena telefonica. Hasta
-resolverla, todo claim de deteccion vocal debe sobrevivir controles de canal y banda.
+Consecuencia **INF:** un AUC alto puede medir codec, filtrado o captura en vez de voz. Altur
+confirmo el proveedor TTS y que se grabo por telefonia, pero no el `output_format`, asi que la
+causa sigue **UNK**. Todo claim de deteccion vocal debe sobrevivir controles de canal y banda.
 
 ## Privacidad, retencion y publicacion
 
@@ -84,7 +97,8 @@ resolverla, todo claim de deteccion vocal debe sobrevivir controles de canal y b
 
 ## Limitaciones adicionales
 
-- El dataset oficial no demuestra generalizacion a otro proveedor TTS o cadena telefonica.
+- El dataset oficial no demuestra generalizacion a otro proveedor TTS o cadena telefonica: todo el
+  sintetico sale de un solo proveedor, con dos modelos.
 - Segmentos de una llamada no son observaciones independientes.
 - El numero real de hablantes y voces es **UNK**.
 - El prior y la composicion del set oculto son **UNK**.
