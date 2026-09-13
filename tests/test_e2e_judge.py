@@ -44,6 +44,16 @@ def test_respuesta_valida_como_la_cuenta_el_juez(status, raw, ok):
     assert e2e.valid_answer(status, raw) is ok
 
 
+def test_timeout_de_red_cuenta_como_llamada_fallida_y_no_aborta(monkeypatch):
+    def lenta(*_a, **_k):
+        raise e2e.urllib.error.URLError(TimeoutError("timed out"))
+
+    monkeypatch.setattr(e2e.urllib.request, "urlopen", lenta)
+    status, raw, _secs = e2e.request("http://127.0.0.1:9/detect", b"{}")
+    assert status == 0
+    assert not e2e.valid_answer(status, raw)
+
+
 @pytest.mark.skipif(not os.environ.get("ALTUR_E2E_URL"), reason="define ALTUR_E2E_URL con un /detect vivo")
 def test_endpoint_vivo_pasa_el_cliente_oficial(tmp_path):
     assert e2e.main(["--url", os.environ["ALTUR_E2E_URL"], "--n", "10", "--out-dir", str(tmp_path)]) == 0

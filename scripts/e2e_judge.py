@@ -60,6 +60,10 @@ def request(url: str, body: bytes | None = None, content_type: str = "applicatio
             return resp.status, resp.read(), time.perf_counter() - t0
     except urllib.error.HTTPError as e:
         return e.code, e.read(), time.perf_counter() - t0
+    except (urllib.error.URLError, TimeoutError, ConnectionError) as e:
+        # Por red lenta el cuerpo puede no terminar de subir en 30 s: para el juez eso es una
+        # llamada fallida, no un motivo para abortar el resto de la prueba. Status 0 = sin respuesta.
+        return 0, repr(e).encode(), time.perf_counter() - t0
 
 
 def wait_ready(base: str, seconds: float) -> bool:
