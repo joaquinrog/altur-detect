@@ -13,12 +13,14 @@ from __future__ import annotations
 
 import logging
 import os
+import secrets
 import time
 from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI, Request, Response, status
 from fastapi.responses import JSONResponse
+from starlette.background import BackgroundTask
 
 from . import bundle, monitor
 from .io import AudioDecodeError, decode, decode_base64
@@ -57,6 +59,10 @@ class Settings:
         # Monitor de la mesa: registro de llamadas y página de estado. Apagado por defecto,
         # y cuando está encendido no toca la respuesta de /detect (ver monitor.py).
         self.monitor = _env_flag("ALTUR_MONITOR", False)
+        # Token de las rutas del monitor. El endpoint es público y está en la misma IP:puerto
+        # que /detect: sin token, cualquiera con la URL ve el tráfico del turno de juicio.
+        # Vacío = sin puerta (solo para desarrollo local).
+        self.monitor_token = (os.environ.get("ALTUR_MONITOR_TOKEN") or "").strip()
 
 
 STATE: dict[str, Any] = {
@@ -144,7 +150,13 @@ async def _extract_audio_bytes(request: Request) -> bytes:
                 return decode_base64(str(data))
         raise AudioDecodeError("multipart sin campo de audio", "missing_audio")
 
+    # Cronómetro de la subida, para el monitor. Va justo aquí y no más arriba porque esta
+    # línea es la única que espera a que el cliente termine de mandar el cuerpo: el parseo
+    # JSON y el base64 vienen después y son trabajo nuestro, no de la red.
+    # NO entra en X-Inference-Ms (D-A6.6: la cabecera mide el modelo) ni en la respuesta.
+    t_up = time.perf_counter()
     raw = await request.body()
+    request.state.upload_ms = (time.perf_counter() - t_up) * 1000.0
     if len(raw) > limit:
         raise AudioDecodeError("cuerpo de la petición demasiado grande", "too_large")
     if ctype in ("audio/wav", "audio/x-wav", "audio/wave", "application/octet-stream"):
@@ -172,22 +184,50 @@ async def _extract_audio_bytes(request: Request) -> bytes:
 
 
 def _watch(request: Request, s: Settings, **fields: Any) -> None:
-    """Anota la llamada si el monitor está encendido. Ver monitor.py: nunca lanza."""
+    """Anota la llamada si el monitor está encendido. Ver monitor.py: nunca lanza.
+
+    🔴 TIENE QUE SEGUIR SIENDO `def`, no `async def`. Se pasa a `BackgroundTask`, y
+    Starlette manda al threadpool solo los callables síncronos (`background.py`:
+    `is_async_callable` → `run_in_threadpool`). Convertirla a corrutina la movería al
+    event loop y su I/O bloquearía al worker, en silencio. Lo fija
+    `test_watch_debe_seguir_siendo_sync`.
+    """
     if not s.monitor:
         return
     try:
         size = int(request.headers.get("content-length") or 0)
     except ValueError:
         size = 0
+    up = getattr(request.state, "upload_ms", None)   # no existe en el 503 de not_ready
     monitor.record(
         ref=getattr(request.state, "call_ref", None),
         mb=round(size / 1_048_576, 3) if size else None,
+        upload_ms=round(up, 1) if isinstance(up, float) else None,
         **fields,
     )
 
 
+def _monitor_open(request: Request, s: Settings) -> bool:
+    """¿Se puede servir una ruta del monitor? Apagado o token malo => no existe.
+
+    `compare_digest` sobre bytes, no `==`: la comparación normal sale antes en el primer
+    byte distinto. Aquí el riesgo real es bajo, pero hacerlo bien es gratis.
+    """
+    if not s.monitor:
+        return False
+    if not s.monitor_token:
+        return True
+    given = request.query_params.get("k") or request.headers.get("x-altur-monitor-token") or ""
+    return secrets.compare_digest(given.encode("utf-8"), s.monitor_token.encode("utf-8"))
+
+
 @app.post("/detect")
 async def detect(request: Request) -> Response:
+    # Cronómetro de TODO lo que hace el servidor: subida, parseo/decodificación e inferencia.
+    # Hace falta aparte de `upload_ms` y de `X-Inference-Ms` porque entre los dos queda un
+    # hueco que ninguno cubre —parsear ~6 MB de JSON, el base64 y el WAV— y medido son
+    # decenas de ms. Sin esto, el "de 30 s" de la página se quedaría corto.
+    t_req = time.perf_counter()
     s: Settings = STATE["settings"]
     det = STATE["detector"]
     if det is None:
@@ -218,32 +258,45 @@ async def detect(request: Request) -> Response:
 
     body = pred.to_response(extras=s.response_extras)
     elapsed_ms = (time.perf_counter() - t0) * 1000.0
-    # Después de medir: el monitor no entra en el cronómetro ni en el cuerpo de la respuesta.
-    _watch(request, s, status=200, ms=round(elapsed_ms, 2),
-           is_synthetic=bool(pred.is_synthetic), confidence=round(float(pred.confidence), 4),
-           duration_s=round(decoded.example.duration_s, 1))
+    # El registro va como BackgroundTask: Starlette manda el cuerpo y solo DESPUÉS corre la
+    # tarea (responses.py: `await send(http.response.body)` precede a `await background()`),
+    # así que no entra en la latencia que mide el cliente del juez. Y como `_watch` es
+    # síncrona, corre en el threadpool y no bloquea el event loop.
+    # No es por ahorrar microsegundos —el append cuesta ~50 µs— sino por `_truncate`, que
+    # lee 1 MB y lo reescribe cuando el JSONL se pasa del tope.
+    watch = BackgroundTask(
+        _watch, request, s, status=200, ms=round(elapsed_ms, 2),
+        server_ms=round((time.perf_counter() - t_req) * 1000.0, 1),
+        is_synthetic=bool(pred.is_synthetic), confidence=round(float(pred.confidence), 4),
+        duration_s=round(decoded.example.duration_s, 1),
+    )
     log.info(
         "detect ok dur=%.1fs ch=%d sr=%d resampled=%s ms=%.1f",
         decoded.example.duration_s, decoded.original_channels,
         decoded.original_sr, decoded.was_resampled, elapsed_ms,
     )
-    return JSONResponse(content=body, headers={"X-Inference-Ms": f"{elapsed_ms:.1f}"})
+    return JSONResponse(
+        content=body, headers={"X-Inference-Ms": f"{elapsed_ms:.1f}"}, background=watch,
+    )
 
 
 @app.get("/monitor", include_in_schema=False)
-async def monitor_page() -> Response:
-    """La página de la mesa. 404 si el monitor está apagado: no existe lo que no se activa."""
+async def monitor_page(request: Request) -> Response:
+    """La página de la mesa. 404 si está apagado o el token no cuadra.
+
+    404 y no 401 a propósito: un 401 confirmaría que la ruta existe y que hay algo detrás.
+    """
     s: Settings = STATE["settings"]
-    if not s.monitor:
+    if not _monitor_open(request, s):
         return _error("not_found", "monitor desactivado", status.HTTP_404_NOT_FOUND)
     return Response(content=MONITOR_PAGE, media_type="text/html; charset=utf-8")
 
 
 @app.get("/monitor/calls", include_in_schema=False)
-async def monitor_calls(limit: int = monitor.DEFAULT_LIMIT) -> Response:
+async def monitor_calls(request: Request, limit: int = monitor.DEFAULT_LIMIT) -> Response:
     """Lo que alimenta la página: últimas llamadas y agregados. Nunca toca el detector."""
     s: Settings = STATE["settings"]
-    if not s.monitor:
+    if not _monitor_open(request, s):
         return _error("not_found", "monitor desactivado", status.HTTP_404_NOT_FOUND)
     det = STATE["detector"]
     calls = monitor.read(max(1, min(int(limit), 500)))

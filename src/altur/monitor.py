@@ -83,24 +83,94 @@ def read(limit: int = DEFAULT_LIMIT) -> list[dict[str, Any]]:
     return out
 
 
+BUDGET_S = 30.0  # el presupuesto del juez por llamada (README de Altur, contrato `429adf7`)
+
+
+def _num(c: dict[str, Any], k: str) -> float | None:
+    v = c.get(k)
+    return float(v) if isinstance(v, (int, float)) else None
+
+
+def total_ms(c: dict[str, Any]) -> float | None:
+    """Lo que gasta la llamada del presupuesto de 30 s: todo el trabajo del servidor.
+
+    Es `server_ms`, no `upload_ms + ms`. Entre esos dos queda el parseo del JSON, el
+    base64 y el WAV, que no están en ninguno y medidos son decenas de ms sobre un cuerpo
+    de 6 MB. Sumar solo los dos daba un total corto a la mitad.
+
+    Sigue sin ser exactamente lo que cronometra el cliente del juez: le faltan el
+    handshake y el viaje de vuelta (~2 RTT), así que se queda un poco por debajo.
+    """
+    srv = _num(c, "server_ms")
+    if srv is not None:
+        return srv
+    up, ms = _num(c, "upload_ms"), _num(c, "ms")
+    if up is None and ms is None:
+        return None
+    return (up or 0.0) + (ms or 0.0)
+
+
+def decode_ms(c: dict[str, Any]) -> float | None:
+    """El hueco entre la subida y la inferencia: parseo JSON + base64 + WAV."""
+    srv, up, ms = _num(c, "server_ms"), _num(c, "upload_ms"), _num(c, "ms")
+    if srv is None or up is None or ms is None:
+        return None
+    return max(0.0, srv - up - ms)
+
+
+def _pcts(values: list[float]) -> dict[str, float | None]:
+    v = sorted(values)
+    if not v:
+        return {"p50": None, "p95": None, "max": None}
+
+    def at(q: float) -> float:
+        return round(v[min(int(q * (len(v) - 1)), len(v) - 1)], 1)
+
+    return {"p50": at(0.5), "p95": at(0.95), "max": round(v[-1], 1)}
+
+
 def summary(calls: list[dict[str, Any]]) -> dict[str, Any]:
-    """Agregados de lo que hay en pantalla. Latencia = trabajo del modelo, no la red."""
+    """Agregados de lo que hay en pantalla.
+
+    Cuatro cosas distintas que no hay que confundir. La llamada se parte en tres etapas
+    que suman el total: `upload_ms` (el cliente subiendo el cuerpo), `decode_ms` (parsear
+    el JSON, el base64 y el WAV) e `inference_ms` (el modelo, lo mismo que
+    `X-Inference-Ms`). `total_ms` es el trabajo entero del servidor, y es el que se compara
+    contra los 30 s del juez.
+    """
     ok = [c for c in calls if c.get("status") == 200]
-    ms = sorted(float(c["ms"]) for c in ok if isinstance(c.get("ms"), (int, float)))
-    synthetic = sum(1 for c in ok if c.get("is_synthetic") is True)
-    human = sum(1 for c in ok if c.get("is_synthetic") is False)
-    mb = [float(c["mb"]) for c in calls if isinstance(c.get("mb"), (int, float))]
+    ms = [v for c in ok if (v := _num(c, "ms")) is not None]
+    ups = [v for c in calls if (v := _num(c, "upload_ms")) is not None]
+    decs = [v for c in calls if (v := decode_ms(c)) is not None]
+    totals = [v for c in calls if (v := total_ms(c)) is not None]
+    mb = [v for c in calls if (v := _num(c, "mb")) is not None]
 
-    def pct(q: float) -> float | None:
-        return round(ms[min(int(q * (len(ms) - 1)), len(ms) - 1)], 1) if ms else None
-
+    # El desglose de LA PEOR llamada, no el máximo de cada etapa por separado: esos máximos
+    # salen de llamadas distintas y no suman el total, que es justo lo que promete la
+    # cabecera de la página.
+    worst_call = max(calls, key=lambda c: total_ms(c) or -1.0) if totals else None
+    peor = total_ms(worst_call) if worst_call else None
     return {
         "calls": len(calls),
         "ok": len(ok),
         "errors": len(calls) - len(ok),
-        "synthetic": synthetic,
-        "human": human,
-        "inference_ms": {"p50": pct(0.5), "p95": pct(0.95), "max": round(ms[-1], 1) if ms else None},
+        "synthetic": sum(1 for c in ok if c.get("is_synthetic") is True),
+        "human": sum(1 for c in ok if c.get("is_synthetic") is False),
+        "inference_ms": _pcts(ms),
+        "upload_ms": _pcts(ups),
+        "decode_ms": _pcts(decs),
+        "total_ms": _pcts(totals),
+        "budget_s": BUDGET_S,
+        # Cuánto margen sobra en la PEOR llamada: el número que importa, porque el juez
+        # cuenta como fallo cada llamada que se pase, no el promedio.
+        "worst_headroom_x": round(BUDGET_S * 1000.0 / peor, 1) if peor else None,
+        "worst": {
+            "total_ms": round(peor, 1),
+            "upload_ms": round(_num(worst_call, "upload_ms") or 0.0, 1),
+            "decode_ms": round(decode_ms(worst_call) or 0.0, 1),
+            "inference_ms": round(_num(worst_call, "ms") or 0.0, 1),
+            "mb": _num(worst_call, "mb"),
+        } if worst_call and peor else None,
         "biggest_mb": round(max(mb), 2) if mb else None,
         "last_ts": calls[0].get("ts") if calls else None,
     }

@@ -137,6 +137,8 @@ def start_container(args, port: int) -> str:
            "-p", f"127.0.0.1:{port}:8000"]
     if args.bundle:
         cmd += ["-v", f"{args.bundle.resolve()}:/app/models/e2e:ro", "-e", "ALTUR_BUNDLE_DIR=/app/models/e2e"]
+    for kv in args.env:
+        cmd += ["-e", kv]
     subprocess.run(cmd + [args.image], check=True, capture_output=True)
     return name
 
@@ -148,6 +150,11 @@ def main(argv: list[str] | None = None) -> int:
     target.add_argument("--image", help="imagen a correr limpia con límites de Vultr")
     ap.add_argument("--bundle", type=Path, help="bundle a montar en el contenedor (default: el de la imagen)")
     ap.add_argument("--docker", default="docker")
+    ap.add_argument(
+        "--env", action="append", default=[], metavar="CLAVE=VALOR",
+        help="variable extra para el contenedor; repetible. Sirve para correr el mismo gate "
+             "con el monitor encendido (--env ALTUR_MONITOR=1) y comparar la latencia",
+    )
     ap.add_argument("--port", type=int, default=18100)
     ap.add_argument("--manifest", type=Path, default=ROOT / "data" / "manifest.csv")
     ap.add_argument("--audio-dir", type=Path, default=ROOT / "data" / "audio")
