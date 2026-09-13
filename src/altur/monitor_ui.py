@@ -1,15 +1,7 @@
-"""La página del Monitor, embebida como texto.
+"""Página autocontenida del Monitor de la mesa.
 
-Va en un `.py` y no en un `.html` porque la imagen se construye con `pip install .` y
-`setuptools.packages.find` solo empaqueta módulos: un `.html` suelto no llegaría al
-contenedor y el monitor daría 404 justo en la mesa.
-
-Sin dependencias externas a propósito: el contenedor no tiene salida a internet, así que
-cualquier CDN dejaría la página en blanco. Todo el CSS y el JS van aquí.
-
-Lo que la página pone al centro es el **presupuesto de 30 s por llamada**, no el conteo:
-"Latency" es uno de los cinco criterios con los que Altur califica, y el juez lo está
-midiendo mientras esto se ve en pantalla.
+Vive en un módulo porque la imagen se construye con ``pip install .`` y no empaqueta
+HTML suelto. No usa CDN ni recursos remotos: el contenedor no tiene salida a internet.
 """
 
 from __future__ import annotations
@@ -21,238 +13,514 @@ PAGE = """<!doctype html>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>altur-detect · monitor</title>
 <style>
-  /* Identidad del equipo: blanco principal, rojos de marca, #cddade para estructura.
-     El rojo se reserva para "sintética", que es la alerta; lo humano va en el azul
-     apagado de la familia de #cddade, para que el color signifique algo y no decore.
-     En esta paleta no hay verde: "listo" también usa el azul apagado. */
   :root {
-    --bg: #ffffff; --panel: #ffffff; --soft: #f7fafa; --line: #cddade;
-    --text: #16191c; --dim: #6d7f87;
-    --synthetic: #c10404; --synthetic-soft: #de473a; --human: #4d6f80; --warn: #de473a;
-    --accent: #c10404;
-    --human-wash: rgba(77,111,128,.12); --synthetic-wash: rgba(193,4,4,.10);
-    --warn-wash: rgba(222,71,58,.12);
-    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --paper: #ffffff;
+    --ink: #202426;
+    --muted: #60747d;
+    --human: #4d6f80;
+    --structure: #cddade;
+    --field: #f2f5f6;
+    --synthetic: #c10404;
+    --confidence: #e87822;
+    --mono: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    --sans: "Arial Narrow", "Aptos Narrow", "Helvetica Neue", Arial, sans-serif;
   }
+
   * { box-sizing: border-box; }
+  html { background: var(--paper); color-scheme: light; }
   body {
-    margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 system-ui, sans-serif;
-    padding: 20px 16px 40px;
+    margin: 0;
+    min-width: 280px;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-variant-numeric: tabular-nums lining-nums;
   }
-  .wrap { max-width: 1100px; margin: 0 auto; }
-  header { display: flex; flex-wrap: wrap; gap: 12px; align-items: baseline; margin-bottom: 18px; }
-  h1 { font-size: 18px; margin: 0; font-weight: 650; letter-spacing: -0.01em; }
-  .sub { color: var(--dim); font-family: var(--mono); font-size: 12px; }
-  .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; margin-right: 6px; }
-  .live { background: var(--human); box-shadow: 0 0 0 3px var(--human-wash); }
-  .down { background: var(--synthetic); box-shadow: 0 0 0 3px var(--synthetic-wash); }
+  ::selection { color: var(--paper); background: var(--human); }
+  :focus-visible { outline: 3px solid var(--confidence); outline-offset: 3px; }
+  [hidden] { display: none !important; }
 
-  /* El presupuesto: lo primero que se ve. */
-  .budget { border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; background: var(--soft); }
-  .budget .k { color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
-  .budget .headline { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; margin: 6px 0 12px; }
-  .budget .big { font-size: 34px; font-weight: 650; font-family: var(--mono); letter-spacing: -0.02em; }
-  .budget .of { color: var(--dim); font-family: var(--mono); font-size: 15px; }
-  .budget .x { margin-left: auto; font-family: var(--mono); font-size: 15px; color: var(--human); font-weight: 600; }
-  .track { height: 14px; border-radius: 7px; background: var(--bg); border: 1px solid var(--line);
-           overflow: hidden; display: flex; }
-  .track > i { display: block; height: 100%; }
-  .track > i.up { background: var(--human); }
-  .track > i.dec { background: var(--line); }
-  .track > i.inf { background: var(--accent); }
-  .legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 9px; color: var(--dim); font-size: 12px; }
-  .legend b { font-weight: 600; font-family: var(--mono); color: var(--text); }
-  .swatch { width: 9px; height: 9px; border-radius: 2px; display: inline-block; margin-right: 5px; }
+  .page { width: min(100%, 1600px); margin: 0 auto; padding: 28px clamp(20px, 4vw, 64px) 56px; }
+  .masthead {
+    min-height: 62px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px;
+  }
+  .lockup { display: flex; align-items: center; gap: 16px; }
+  .mark {
+    width: 42px;
+    height: 42px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--ink);
+    color: var(--ink);
+    font: 700 13px/1 var(--mono);
+    letter-spacing: -.08em;
+  }
+  .product { display: grid; gap: 2px; }
+  .product strong { font-size: 15px; letter-spacing: -.02em; }
+  .product span { color: var(--muted); font: 10px/1.2 var(--mono); letter-spacing: .08em; text-transform: uppercase; }
+  .connection {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 42px;
+    color: var(--human);
+    font: 700 10px/1 var(--mono);
+    letter-spacing: .1em;
+    text-transform: uppercase;
+  }
+  .connection-dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .connection[data-state="connecting"] .connection-dot { animation: pulse 1.2s ease-in-out infinite; }
+  .connection[data-state="error"] { color: var(--muted); }
 
-  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-top: 14px; }
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
-  .card .k { color: var(--dim); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
-  .card .v { font-size: 24px; font-weight: 600; font-family: var(--mono); margin-top: 4px; }
-  .card .v small { font-size: 13px; color: var(--dim); font-weight: 400; }
-  section { margin-top: 22px; }
-  h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--dim); margin: 0 0 8px; }
-  .scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
-  table { border-collapse: collapse; width: 100%; min-width: 780px; background: var(--panel); }
-  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
-  th { color: var(--dim); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
-  tbody tr:last-child td { border-bottom: 0; }
+  .stage {
+    min-height: calc(100svh - 122px);
+    display: grid;
+    grid-template-rows: auto 1fr auto auto;
+    gap: 0;
+    padding: clamp(24px, 4vw, 52px);
+    background: var(--field);
+    border-top: 1px solid var(--structure);
+  }
+  .stage-head { display: flex; align-items: baseline; justify-content: space-between; gap: 24px; }
+  .stage-head strong { font-size: 13px; font-weight: 650; letter-spacing: -.01em; }
+  .call-ref { color: var(--muted); font: 11px/1.3 var(--mono); text-align: right; }
+
+  .notice { align-self: center; max-width: 620px; padding: 54px 0; }
+  .notice strong { display: block; font-size: clamp(38px, 6vw, 78px); line-height: .96; letter-spacing: -.04em; }
+  .notice p { max-width: 52ch; margin: 22px 0 0; color: var(--muted); font-size: 15px; }
+  .notice code { color: var(--human); font-family: var(--mono); }
+
+  .readout {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(250px, .65fr);
+    align-items: center;
+    gap: clamp(44px, 6vw, 96px);
+    padding: clamp(32px, 5vh, 64px) 0;
+  }
+  .verdict-block { min-width: 0; }
+  .verdict-word-wrap { position: relative; overflow: hidden; padding: .08em 0 .12em; }
+  .verdict-word {
+    margin: 0;
+    width: min-content;
+    max-width: 100%;
+    color: var(--human);
+    font-size: clamp(64px, 10vw, 148px);
+    font-weight: 700;
+    line-height: .82;
+    letter-spacing: -.04em;
+    text-transform: uppercase;
+  }
+  .verdict-ghost { position: absolute; inset: .08em auto auto 0; pointer-events: none; }
+  .confidence-line { display: flex; align-items: baseline; gap: clamp(12px, 2vw, 24px); margin-top: clamp(28px, 4vh, 48px); }
+  .confidence-value {
+    color: var(--confidence);
+    font-size: clamp(52px, 6vw, 88px);
+    font-weight: 650;
+    line-height: .85;
+    letter-spacing: -.04em;
+    white-space: nowrap;
+  }
+  .confidence-copy { max-width: 150px; color: var(--muted); font-size: 14px; line-height: 1.2; }
+  .digit-roll { position: relative; display: inline-grid; overflow: hidden; vertical-align: bottom; }
+  .digit-roll > span { grid-area: 1 / 1; }
+  .digit-roll .old { animation: digit-old 520ms cubic-bezier(.2,.8,.2,1) forwards; }
+  .digit-roll .new { animation: digit-new 520ms cubic-bezier(.2,.8,.2,1) forwards; }
+
+  .latency-block { min-width: 0; padding-left: clamp(30px, 4vw, 66px); border-left: 1px solid var(--structure); }
+  .metric-title { display: block; color: var(--muted); font: 700 10px/1.2 var(--mono); letter-spacing: .12em; text-transform: uppercase; }
+  .latency-value { display: block; margin-top: 22px; font-size: clamp(62px, 7.4vw, 112px); font-weight: 650; line-height: .82; letter-spacing: -.04em; white-space: nowrap; }
+  .latency-value small { color: var(--muted); font-size: .26em; font-weight: 500; letter-spacing: 0; }
+  .latency-note { margin: 20px 0 0; color: var(--muted); font-size: 13px; }
+
+  .budget { padding: 22px 0 10px; border-top: 1px solid var(--structure); }
+  .budget-head { display: flex; justify-content: space-between; gap: 20px; color: var(--muted); font: 700 10px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase; }
+  .sausage-chain { display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 8px; margin-top: 18px; }
+  .sausage-link {
+    position: relative;
+    height: clamp(28px, 3.2vw, 42px);
+    overflow: hidden;
+    border: 1px solid #aebfc5;
+    border-radius: 999px;
+    background: rgba(255,255,255,.72);
+  }
+  .sausage-link:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    z-index: 2;
+    top: 50%;
+    right: -7px;
+    width: 10px;
+    height: 10px;
+    border: 1px solid #aebfc5;
+    background: var(--field);
+    transform: translateY(-50%) rotate(45deg);
+  }
+  .sausage-fill { position: absolute; inset: 0; background: var(--human); transform: scaleX(0); transform-origin: left; }
+  .motion .sausage-fill { transition: transform 520ms cubic-bezier(.16,1,.3,1); }
+  .budget-marker { margin-top: 10px; color: var(--ink); font: 700 11px/1 var(--mono); }
+
+  .evidence {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 28px;
+    margin-top: 20px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(77,111,128,.18);
+    color: var(--muted);
+    font-size: 11px;
+    line-height: 1.55;
+  }
+  .evidence strong { color: var(--ink); font-weight: 650; }
+  .evidence-detail { max-width: 78ch; }
+  .rtt { max-width: 36ch; text-align: right; }
+
+  .history { margin-top: clamp(52px, 8vw, 104px); }
+  .history-head { display: flex; justify-content: space-between; align-items: baseline; gap: 24px; margin-bottom: 14px; }
+  .history h2 { margin: 0; font-size: 21px; letter-spacing: -.025em; }
+  .history-counts { color: var(--muted); font: 11px/1.3 var(--mono); text-align: right; }
+  .table-wrap { overflow-x: auto; border-top: 1px solid var(--ink); scrollbar-color: var(--human) var(--field); }
+  table { width: 100%; min-width: 760px; border-collapse: collapse; font-size: 12px; }
+  th, td { padding: 11px 10px; border-bottom: 1px solid var(--structure); text-align: left; white-space: nowrap; }
+  th { color: var(--muted); font: 700 9px/1 var(--mono); letter-spacing: .09em; text-transform: uppercase; }
   td.num { font-family: var(--mono); text-align: right; }
-  .tag { font-family: var(--mono); font-size: 12px; padding: 2px 8px; border-radius: 999px; font-weight: 600; }
-  .tag.s { color: var(--synthetic); background: var(--synthetic-wash); }
-  .tag.h { color: var(--human); background: var(--human-wash); }
-  .tag.e { color: var(--warn); background: var(--warn-wash); }
-  .bar { height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; min-width: 54px; }
-  .bar > i { display: block; height: 100%; background: var(--accent); }
-  .mini { height: 6px; border-radius: 3px; background: var(--bg); border: 1px solid var(--line);
-          overflow: hidden; display: flex; min-width: 90px; }
-  .mini > i { display: block; height: 100%; }
-  .empty { padding: 26px 14px; color: var(--dim); text-align: center; }
-  .note { color: var(--dim); font-size: 12px; margin-top: 10px; max-width: 78ch; }
-  code { font-family: var(--mono); color: var(--accent); }
-  @media (max-width: 520px) { .card .v { font-size: 20px; } .budget .big { font-size: 27px; } }
+  .result { font-weight: 750; text-transform: uppercase; }
+  .result.synthetic { color: var(--synthetic); }
+  .result.human { color: var(--human); }
+  .result.error { color: var(--muted); }
+  .history-empty { padding: 36px 10px; color: var(--muted); text-align: center; }
+
+  @keyframes pulse { 50% { opacity: .28; transform: scale(.72); } }
+  @keyframes verdict-in {
+    from { opacity: 0; clip-path: inset(100% 0 0); transform: translateY(16px); }
+    to { opacity: 1; clip-path: inset(0); transform: translateY(0); }
+  }
+  @keyframes verdict-out { to { opacity: 0; clip-path: inset(0 0 100%); transform: translateY(-12px); } }
+  @keyframes digit-old { to { opacity: 0; transform: translateY(-72%); } }
+  @keyframes digit-new { from { opacity: 0; transform: translateY(72%); } to { opacity: 1; transform: translateY(0); } }
+
+  @media (max-width: 760px) {
+    .page { padding: 20px 16px 42px; }
+    .masthead { min-height: 70px; }
+    .product span { display: none; }
+    .stage { min-height: calc(100svh - 102px); padding: 24px 20px; }
+    .stage-head { align-items: flex-start; }
+    .readout { grid-template-columns: 1fr; align-content: center; gap: 40px; padding: 34px 0; }
+    .verdict-word { font-size: clamp(48px, 16vw, 78px); }
+    .confidence-line { margin-top: 24px; }
+    .latency-block { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px 18px; padding: 24px 0 0; border-left: 0; border-top: 1px solid var(--structure); }
+    .latency-block .metric-title { flex-basis: 100%; }
+    .latency-value { margin-top: 4px; font-size: clamp(56px, 20vw, 82px); }
+    .latency-note { margin: 0; }
+    .sausage-chain { gap: 3px; }
+    .sausage-link { height: 28px; }
+    .evidence { align-items: flex-start; flex-direction: column; gap: 9px; }
+    .rtt { text-align: left; }
+  }
+
+  @media (max-width: 390px) {
+    .connection { max-width: 118px; justify-content: flex-end; text-align: right; }
+    .call-ref { max-width: 46%; overflow-wrap: anywhere; }
+    .confidence-copy { max-width: 124px; font-size: 12px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { scroll-behavior: auto !important; animation: none !important; transition: none !important; }
+  }
 </style>
 </head>
 <body>
-<div class="wrap">
-  <header>
-    <h1>altur-detect</h1>
-    <span class="sub" id="state"><span class="dot down"></span>conectando…</span>
-    <span class="sub" id="bundle"></span>
+<div class="page">
+  <header class="masthead">
+    <div class="lockup" aria-label="Chorizos Circuits, Altur voice authenticity">
+      <span class="mark" aria-hidden="true">CC</span>
+      <span class="product"><strong>altur-detect</strong><span>voice authenticity monitor</span></span>
+    </div>
+    <div class="connection" id="connection" data-state="connecting" role="status" aria-live="polite">
+      <i class="connection-dot" aria-hidden="true"></i><span id="connection-copy">Conectando</span>
+    </div>
   </header>
 
-  <div class="budget">
-    <div class="k">peor llamada contra el presupuesto del juez</div>
-    <div class="headline">
-      <span class="big" id="b-worst">—</span>
-      <span class="of">de 30 s</span>
-      <span class="x" id="b-x"></span>
+  <main class="stage" id="stage">
+    <div class="stage-head">
+      <strong>Última llamada</strong>
+      <span class="call-ref" id="call-ref">Esperando datos</span>
     </div>
-    <div class="track" id="b-track"></div>
-    <div class="legend">
-      <span><span class="swatch" style="background:var(--human)"></span>subida <b id="b-up">—</b></span>
-      <span><span class="swatch" style="background:var(--line)"></span>decodificación <b id="b-dec">—</b></span>
-      <span><span class="swatch" style="background:var(--accent)"></span>modelo <b id="b-inf">—</b></span>
-      <span>contestadas <b id="b-ok">—</b></span>
-      <span>errores <b id="b-err">—</b></span>
+
+    <div class="notice" id="notice">
+      <strong id="notice-title">Conectando al detector</strong>
+      <p id="notice-copy">Consultando <code>/monitor/calls</code>. Esta pantalla se actualizará automáticamente.</p>
     </div>
-  </div>
 
-  <div class="cards">
-    <div class="card"><div class="k">llamadas</div><div class="v" id="c-calls">—</div></div>
-    <div class="card"><div class="k">sintéticas</div><div class="v" id="c-syn" style="color:var(--synthetic)">—</div></div>
-    <div class="card"><div class="k">humanas</div><div class="v" id="c-hum" style="color:var(--human)">—</div></div>
-    <div class="card"><div class="k">subida p50</div><div class="v" id="c-up50">—<small> s</small></div></div>
-    <div class="card"><div class="k">modelo p50</div><div class="v" id="c-p50">—<small> ms</small></div></div>
-    <div class="card"><div class="k">modelo p95</div><div class="v" id="c-p95">—<small> ms</small></div></div>
-    <div class="card"><div class="k">cuerpo mayor</div><div class="v" id="c-mb">—<small> MB</small></div></div>
-  </div>
+    <section class="readout" id="readout" aria-label="Resultado de la última llamada" aria-live="polite" aria-atomic="true" hidden>
+      <div class="verdict-block">
+        <span class="metric-title">Veredicto reportado</span>
+        <div class="verdict-word-wrap" id="verdict-wrap">
+          <h1 class="verdict-word" id="verdict">—</h1>
+        </div>
+        <div class="confidence-line">
+          <strong class="confidence-value" id="confidence-value">—</strong>
+          <span class="confidence-copy">probabilidad calibrada de este veredicto</span>
+        </div>
+      </div>
+      <div class="latency-block">
+        <span class="metric-title">Latencia total del servidor</span>
+        <strong class="latency-value"><span id="latency-value">—</span> <small>s</small></strong>
+        <p class="latency-note">Máximo permitido: 30 segundos</p>
+      </div>
+    </section>
 
-  <section>
-    <h2>Últimas llamadas</h2>
-    <div class="scroll">
+    <section class="budget" id="budget" aria-label="Latencia usada del presupuesto de 30 segundos" hidden>
+      <div class="budget-head"><span>Tiempo de respuesta</span><span>30 segundos</span></div>
+      <div class="sausage-chain" id="sausage-chain" aria-hidden="true">
+        <span class="sausage-link"><i class="sausage-fill"></i></span>
+        <span class="sausage-link"><i class="sausage-fill"></i></span>
+        <span class="sausage-link"><i class="sausage-fill"></i></span>
+        <span class="sausage-link"><i class="sausage-fill"></i></span>
+        <span class="sausage-link"><i class="sausage-fill"></i></span>
+        <span class="sausage-link"><i class="sausage-fill"></i></span>
+        <span class="sausage-link"><i class="sausage-fill"></i></span>
+        <span class="sausage-link"><i class="sausage-fill"></i></span>
+        <span class="sausage-link"><i class="sausage-fill"></i></span>
+        <span class="sausage-link"><i class="sausage-fill"></i></span>
+      </div>
+      <div class="budget-marker" id="budget-marker">— de 30 s</div>
+    </section>
+
+    <div class="evidence" id="evidence" hidden>
+      <span class="evidence-detail" id="worst">Peor llamada observada: —</span>
+      <span class="rtt">El total no incluye handshake ni viaje de vuelta (~2 RTT).</span>
+    </div>
+  </main>
+
+  <section class="history" aria-labelledby="history-title">
+    <div class="history-head">
+      <h2 id="history-title">Llamadas recientes</h2>
+      <span class="history-counts" id="history-counts">0 llamadas</span>
+    </div>
+    <div class="table-wrap" tabindex="0" aria-label="Historial de llamadas, desplazable horizontalmente">
       <table>
         <thead><tr>
-          <th>hora</th><th>llamada</th><th>veredicto</th><th>confianza</th>
-          <th style="text-align:right">audio</th><th style="text-align:right">cuerpo</th>
-          <th style="text-align:right">subida</th><th style="text-align:right">modelo</th>
-          <th>de 30 s</th>
+          <th>Hora</th><th>Referencia</th><th>Veredicto</th><th style="text-align:right">Confianza</th>
+          <th style="text-align:right">Total</th><th style="text-align:right">Subida</th>
+          <th style="text-align:right">Modelo</th><th style="text-align:right">Cuerpo</th>
         </tr></thead>
-        <tbody id="rows"><tr><td colspan="9" class="empty">Sin llamadas todavía.</td></tr></tbody>
+        <tbody id="rows"><tr><td colspan="8" class="history-empty">Sin llamadas todavía.</td></tr></tbody>
       </table>
     </div>
-    <p class="note">
-      La llamada se parte en tres: <strong>subida</strong> (el cliente mandando el cuerpo,
-      cronometrado en el servidor), <strong>decodificación</strong> (el JSON, el base64 y
-      el WAV) y <strong>modelo</strong> (el detector, lo mismo que la cabecera
-      <code>X-Inference-Ms</code>). La barra <em>de 30 s</em> es la suma de las tres.
-      No incluye el handshake ni el viaje de vuelta (~2 RTT), así que queda un poco por
-      debajo de lo que imprime <code>check_endpoint.py</code>. El umbral de decisión lo
-      declara <code>/version</code>, junto con las limitaciones del bundle.
-    </p>
   </section>
 </div>
 
 <script>
 const $ = (id) => document.getElementById(id);
-const pad = (n) => String(n).padStart(2, "0");
-const hora = (ts) => { const d = new Date(ts * 1000);
-  return pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds()); };
 const BUDGET_MS = 30000;
-
-// El token viaja en la URL de la página; hay que reenviarlo en cada consulta.
 const K = new URLSearchParams(location.search).get("k");
 const CALLS_URL = "monitor/calls?limit=40" + (K ? "&k=" + encodeURIComponent(K) : "");
+const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+let lastCallKey = null;
+let initialLoad = true;
+let pollInFlight = false;
+let currentConfidence = "—";
+let currentLatency = null;
 
-const segs = (ms) => (ms / 1000).toFixed(2) + " s";
-// El total es el trabajo entero del servidor, no subida+modelo: entre esos dos está la
-// decodificación del JSON/base64/WAV, que sobre 6 MB son decenas de ms.
+const pad = (n) => String(n).padStart(2, "0");
+const hora = (ts) => {
+  const d = new Date(ts * 1000);
+  return Number.isFinite(d.getTime()) ? pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds()) : "—";
+};
 const total = (c) => c.server_ms != null ? c.server_ms : (c.upload_ms || 0) + (c.ms || 0);
-const decode = (c) => c.server_ms != null
-  ? Math.max(0, c.server_ms - (c.upload_ms || 0) - (c.ms || 0)) : 0;
-const pct = (ms) => Math.max(ms > 0 ? 0.4 : 0, Math.min(100, (ms / BUDGET_MS) * 100));
+const decode = (c) => c.server_ms != null ? Math.max(0, c.server_ms - (c.upload_ms || 0) - (c.ms || 0)) : 0;
+const seconds = (ms) => (ms / 1000).toFixed(2);
+const esc = (value) => String(value).replace(/[&<>"']/g, (ch) => ({
+  "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+})[ch]);
 
-function veredicto(c) {
-  if (c.status !== 200) return '<span class="tag e">' + (c.error || c.status) + "</span>";
-  if (c.is_synthetic === true) return '<span class="tag s">sintética</span>';
-  if (c.is_synthetic === false) return '<span class="tag h">humana</span>';
-  return "—";
+function setConnection(kind, text) {
+  $("connection").dataset.state = kind;
+  $("connection-copy").textContent = text;
 }
 
-function confianza(c) {
-  if (typeof c.confidence !== "number") return "—";
-  const p = Math.round(c.confidence * 100);
-  // La barra se tiñe del color del veredicto. Si no, una llamada humana saldría con una
-  // barra roja llena y el rojo dejaría de significar "sintética" (notes/20).
-  const col = c.is_synthetic === true ? "var(--synthetic)"
-            : c.is_synthetic === false ? "var(--human)" : "var(--dim)";
-  return '<div class="bar" title="' + c.confidence.toFixed(3) + '"><i style="width:' + p +
-    "%;background:" + col + '"></i></div>';
+function showNotice(kind) {
+  $("readout").hidden = true;
+  $("budget").hidden = true;
+  $("evidence").hidden = true;
+  $("notice").hidden = false;
+  if (kind === "empty") {
+    $("notice-title").textContent = "Esperando la primera llamada";
+    $("notice-copy").textContent = "Cuando llegue una llamada, aquí aparecerán su veredicto, confianza y latencia.";
+    $("call-ref").textContent = "Sin llamadas";
+  } else if (kind === "error") {
+    $("notice-title").textContent = "No pudimos actualizar el monitor";
+    $("notice-copy").textContent = "La conexión se reintentará automáticamente en un segundo.";
+    $("call-ref").textContent = "Sin respuesta";
+  }
 }
 
-function presupuesto(c) {
-  const t = total(c);
-  if (!t) return "—";
-  return '<div class="mini" title="' + segs(t) + ' de 30 s">' +
-    '<i style="width:' + pct(c.upload_ms || 0) + '%;background:var(--human)"></i>' +
-    '<i style="width:' + pct(decode(c)) + '%;background:var(--line)"></i>' +
-    '<i style="width:' + pct(c.ms || 0) + '%;background:var(--accent)"></i></div>';
+function verdictData(c) {
+  if (c.status !== 200) return {text: "Error", color: "var(--human)", cls: "error"};
+  if (c.is_synthetic === true) return {text: "Sintética", color: "var(--synthetic)", cls: "synthetic"};
+  if (c.is_synthetic === false) return {text: "Humana", color: "var(--human)", cls: "human"};
+  return {text: "Sin veredicto", color: "var(--human)", cls: "error"};
+}
+
+function setVerdict(next, animate) {
+  const el = $("verdict");
+  const wrap = $("verdict-wrap");
+  if (animate && el.textContent !== "—") {
+    const ghost = el.cloneNode(true);
+    ghost.removeAttribute("id");
+    ghost.classList.add("verdict-ghost");
+    wrap.appendChild(ghost);
+    ghost.style.animation = "verdict-out 520ms cubic-bezier(.2,.8,.2,1) forwards";
+    window.setTimeout(() => ghost.remove(), 540);
+  }
+  el.textContent = next.text;
+  el.style.color = next.color;
+  if (animate) {
+    el.style.animation = "none";
+    void el.offsetWidth;
+    el.style.animation = "verdict-in 520ms cubic-bezier(.16,1,.3,1) both";
+  } else {
+    el.style.animation = "none";
+  }
+}
+
+function setConfidence(value, animate) {
+  const next = typeof value === "number" ? Math.round(value * 100) + "%" : "—";
+  const el = $("confidence-value");
+  el.setAttribute("aria-label", next === "—" ? "Probabilidad calibrada no disponible" : next + " de probabilidad calibrada para este veredicto");
+  if (!animate || currentConfidence === "—" || next === "—") {
+    el.textContent = next;
+    currentConfidence = next;
+    return;
+  }
+  const length = Math.max(currentConfidence.length, next.length);
+  el.innerHTML = Array.from({length}, (_, i) => {
+    const oldChar = currentConfidence.padStart(length)[i];
+    const newChar = next.padStart(length)[i];
+    if (oldChar === newChar) return esc(newChar);
+    return '<span class="digit-roll"><span class="old">' + esc(oldChar) +
+      '</span><span class="new">' + esc(newChar) + "</span></span>";
+  }).join("");
+  currentConfidence = next;
+  window.setTimeout(() => { el.textContent = next; }, 540);
+}
+
+function setLatency(ms, animate) {
+  const el = $("latency-value");
+  if (!(ms > 0)) {
+    el.textContent = "—";
+    currentLatency = null;
+    return;
+  }
+  if (!animate || currentLatency == null) {
+    el.textContent = seconds(ms);
+    currentLatency = ms;
+    return;
+  }
+  const start = currentLatency;
+  const started = performance.now();
+  const frame = (now) => {
+    const p = Math.min(1, (now - started) / 520);
+    const eased = 1 - Math.pow(1 - p, 4);
+    el.textContent = seconds(start + (ms - start) * eased);
+    if (p < 1) requestAnimationFrame(frame);
+  };
+  requestAnimationFrame(frame);
+  currentLatency = ms;
+}
+
+function setSausage(ms, animate) {
+  document.documentElement.classList.toggle("motion", animate);
+  const links = document.querySelectorAll(".sausage-fill");
+  const used = Math.max(0, Math.min(10, (ms / BUDGET_MS) * 10));
+  links.forEach((link, i) => { link.style.transform = "scaleX(" + Math.max(0, Math.min(1, used - i)) + ")"; });
+  $("budget-marker").textContent = ms > 0 ? seconds(ms) + " s de 30 s" : "Latencia no disponible";
+  window.setTimeout(() => document.documentElement.classList.remove("motion"), 560);
+}
+
+function renderLatest(c, animate) {
+  const motion = animate && !reducedMotion.matches;
+  const verdict = verdictData(c);
+  const latency = total(c);
+  $("notice").hidden = true;
+  $("readout").hidden = false;
+  $("budget").hidden = false;
+  $("evidence").hidden = false;
+  $("call-ref").textContent = (c.ref || "Sin referencia") + " · " + hora(c.ts);
+  setVerdict(verdict, motion);
+  setConfidence(c.status === 200 ? c.confidence : null, motion);
+  setLatency(latency, motion);
+  setSausage(latency || 0, motion);
+}
+
+function renderSummary(summary) {
+  const s = summary || {};
+  const w = s.worst;
+  $("history-counts").textContent = (s.calls ?? 0) + " llamadas · " + (s.ok ?? 0) +
+    " contestadas · " + (s.errors ?? 0) + " errores";
+  $("worst").innerHTML = w
+    ? "<strong>Peor llamada observada: " + seconds(w.total_ms) + " s</strong> · subida " +
+      seconds(w.upload_ms) + " s · decodificación " + w.decode_ms.toFixed(0) +
+      " ms · modelo " + w.inference_ms.toFixed(0) + " ms" +
+      (s.worst_headroom_x != null ? " · " + esc(s.worst_headroom_x) + "× de margen" : "")
+    : "Peor llamada observada: —";
+}
+
+function renderRows(calls) {
+  $("rows").innerHTML = calls.length ? calls.map((c) => {
+    const verdict = verdictData(c);
+    const confidence = c.status === 200 && typeof c.confidence === "number"
+      ? Math.round(c.confidence * 100) + "%" : "—";
+    const latency = total(c);
+    return "<tr><td>" + hora(c.ts) + "</td><td>" + esc(c.ref || "—") +
+      '</td><td><span class="result ' + verdict.cls + '">' + esc(verdict.text) +
+      '</span></td><td class="num">' + confidence + '</td><td class="num">' +
+      (latency > 0 ? seconds(latency) + " s" : "—") + '</td><td class="num">' +
+      (c.upload_ms != null ? seconds(c.upload_ms) + " s" : "—") + '</td><td class="num">' +
+      (c.ms != null ? Number(c.ms).toFixed(1) + " ms" : "—") + '</td><td class="num">' +
+      (c.mb != null ? Number(c.mb).toFixed(2) + " MB" : "—") + "</td></tr>";
+  }).join("") : '<tr><td colspan="8" class="history-empty">Sin llamadas todavía.</td></tr>';
 }
 
 async function tick() {
+  if (pollInFlight) return;
+  pollInFlight = true;
   try {
-    const r = await fetch(CALLS_URL, {cache: "no-store"});
-    if (!r.ok) throw new Error(r.status);
-    const d = await r.json();
+    const response = await fetch(CALLS_URL, {cache: "no-store"});
+    if (!response.ok) throw new Error(response.status);
+    const data = await response.json();
+    const ready = data.ready === true;
+    const calls = data.calls || [];
+    setConnection(ready ? "ready" : "error", ready ? "Detector listo" : "Detector no listo");
+    renderSummary(data.summary);
+    renderRows(calls);
 
-    const ready = d.ready === true;
-    $("state").innerHTML = '<span class="dot ' + (ready ? "live" : "down") + '"></span>' +
-      (ready ? "listo" : "no listo");
-    $("bundle").textContent = [d.detector, d.threshold != null ? "umbral " + d.threshold.toFixed(4) : null]
-      .filter(Boolean).join(" · ");
-
-    const s = d.summary || {};
-    const up = s.upload_ms || {}, ms = s.inference_ms || {};
-    // El desglose es el de LA peor llamada. No se usan los máximos por etapa: salen de
-    // llamadas distintas y no sumarían el titular.
-    const w = s.worst;
-
-    $("b-worst").textContent = w ? segs(w.total_ms) : "—";
-    $("b-x").textContent = s.worst_headroom_x != null ? s.worst_headroom_x + "× de margen" : "";
-    $("b-track").innerHTML = w
-      ? '<i class="up" style="width:' + pct(w.upload_ms) + '%"></i>' +
-        '<i class="dec" style="width:' + pct(w.decode_ms) + '%"></i>' +
-        '<i class="inf" style="width:' + pct(w.inference_ms) + '%"></i>'
-      : "";
-    $("b-up").textContent = w ? segs(w.upload_ms) : "—";
-    $("b-dec").textContent = w ? w.decode_ms.toFixed(0) + " ms" : "—";
-    $("b-inf").textContent = w ? w.inference_ms.toFixed(0) + " ms" : "—";
-    $("b-ok").textContent = s.ok ?? 0;
-    $("b-err").textContent = s.errors ?? 0;
-
-    $("c-calls").textContent = s.calls ?? 0;
-    $("c-syn").textContent = s.synthetic ?? 0;
-    $("c-hum").textContent = s.human ?? 0;
-    $("c-up50").innerHTML = (up.p50 != null ? (up.p50 / 1000).toFixed(2) : "—") + "<small> s</small>";
-    $("c-p50").innerHTML = (ms.p50 ?? "—") + "<small> ms</small>";
-    $("c-p95").innerHTML = (ms.p95 ?? "—") + "<small> ms</small>";
-    $("c-mb").innerHTML = (s.biggest_mb ?? "—") + "<small> MB</small>";
-
-    const calls = d.calls || [];
-    $("rows").innerHTML = calls.length ? calls.map((c) =>
-      "<tr>" +
-      "<td>" + hora(c.ts) + "</td>" +
-      '<td class="num">' + (c.ref || "—") + "</td>" +
-      "<td>" + veredicto(c) + "</td>" +
-      "<td>" + confianza(c) + "</td>" +
-      '<td class="num">' + (c.duration_s != null ? c.duration_s.toFixed(0) + " s" : "—") + "</td>" +
-      '<td class="num">' + (c.mb != null ? c.mb.toFixed(2) + " MB" : "—") + "</td>" +
-      '<td class="num">' + (c.upload_ms != null ? segs(c.upload_ms) : "—") + "</td>" +
-      '<td class="num">' + (c.ms != null ? c.ms.toFixed(1) + " ms" : "—") + "</td>" +
-      "<td>" + presupuesto(c) + "</td>" +
-      "</tr>").join("")
-      : '<tr><td colspan="9" class="empty">Sin llamadas todavía.</td></tr>';
-  } catch (e) {
-    $("state").innerHTML = '<span class="dot down"></span>sin respuesta';
+    if (!calls.length) {
+      lastCallKey = null;
+      showNotice("empty");
+    } else {
+      const c = calls[0];
+      const key = JSON.stringify([c.ts, c.ref, c.status, c.is_synthetic, c.confidence, c.server_ms, c.ms, c.upload_ms]);
+      if (key !== lastCallKey) {
+        renderLatest(c, !initialLoad);
+        lastCallKey = key;
+      } else if ($("readout").hidden) {
+        // Una reconexión restaura el dato existente sin fingir que llegó otra llamada.
+        renderLatest(c, false);
+      }
+    }
+    initialLoad = false;
+  } catch (_error) {
+    setConnection("error", "Sin respuesta");
+    showNotice("error");
+  } finally {
+    pollInFlight = false;
   }
 }
 

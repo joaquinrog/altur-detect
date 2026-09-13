@@ -65,6 +65,16 @@ def test_la_pagina_se_sirve_sin_dependencias_externas(monitor_client):
     assert "http://" not in html and "https://" not in html
 
 
+def test_la_pagina_prioriza_el_ultimo_veredicto_y_no_reanima_polls(monitor_client):
+    html = monitor_client.get("/monitor").text
+
+    assert html.count('class="sausage-link"') == 10
+    assert "probabilidad calibrada de este veredicto" in html
+    assert "prefers-reduced-motion: reduce" in html
+    assert "lastCallKey" in html
+    assert "~2 RTT" in html
+
+
 def test_un_monitor_roto_no_tumba_detect(monitor_client, golden_b64, monkeypatch):
     """La regla nº 1 de monitor.py, ejercida: si el registro falla, /detect ni se entera."""
     def boom(*_a, **_k):
