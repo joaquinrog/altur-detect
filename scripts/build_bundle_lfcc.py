@@ -169,9 +169,15 @@ def main(argv: list[str] | None = None) -> int:
                 "confiados, no de umbral."
             ),
             (
-                "UNK: los controles de confound de A3.6 (canal del agente, silencio) NO se han "
-                "corrido sobre LFCC. D-A2.4 mostro que la cadena de produccion discrimina casi "
-                "tanto como la voz, y un LFCC promediado puede capturarla."
+                "OBS: A3.6 sobre LFCC sale POSITIVO en los dos controles (D-A7.6). El silencio del "
+                "caller solo separa con AUC OOF 0.9994 [0.998, 1.000] y el canal del agente, mismo "
+                "TTS en ambas clases, con 0.7397 [0.683, 0.801]; los dos mas fuertes que en el "
+                "baseline acustico. Gran parte de la separacion es cadena de grabacion, no voz."
+            ),
+            (
+                "UNK: si el set oculto conserva la cadena de grabacion por clase de train/val, C2 "
+                "deberia sostenerse; si la cadena cambia o se iguala entre clases, puede caer. No "
+                "hay evidencia de que transfiera a una cadena normalizada."
             ),
             (
                 "UNK: la curva de truncacion no se midio para LFCC; min_seconds_declared hereda "
