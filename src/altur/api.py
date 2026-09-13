@@ -20,8 +20,9 @@ from typing import Any
 from fastapi import FastAPI, Request, Response, status
 from fastapi.responses import JSONResponse
 
-from . import bundle
+from . import bundle, monitor
 from .io import AudioDecodeError, decode, decode_base64
+from .monitor_ui import PAGE as MONITOR_PAGE
 from .types import Prediction
 
 log = logging.getLogger("altur.api")
@@ -53,6 +54,9 @@ class Settings:
         # responda 200, que es lo único que la hace útil: si el warm-up pasara después, el
         # primer request real de un juez seguiría pagándolo.
         self.warmup = _env_flag("ALTUR_WARMUP", True)
+        # Monitor de la mesa: registro de llamadas y página de estado. Apagado por defecto,
+        # y cuando está encendido no toca la respuesta de /detect (ver monitor.py).
+        self.monitor = _env_flag("ALTUR_MONITOR", False)
 
 
 STATE: dict[str, Any] = {
@@ -157,6 +161,8 @@ async def _extract_audio_bytes(request: Request) -> bytes:
         return decode_base64(payload)
     if not isinstance(payload, dict):
         raise AudioDecodeError("el JSON debe ser un objeto", "bad_json")
+    # Para el monitor: se guarda una referencia derivada, nunca el `call_id` en claro.
+    request.state.call_ref = monitor.call_ref(payload.get("call_id"))
     for f in AUDIO_FIELDS:
         if f in payload and payload[f] is not None:
             return decode_base64(payload[f])
@@ -165,20 +171,38 @@ async def _extract_audio_bytes(request: Request) -> bytes:
     )
 
 
+def _watch(request: Request, s: Settings, **fields: Any) -> None:
+    """Anota la llamada si el monitor está encendido. Ver monitor.py: nunca lanza."""
+    if not s.monitor:
+        return
+    try:
+        size = int(request.headers.get("content-length") or 0)
+    except ValueError:
+        size = 0
+    monitor.record(
+        ref=getattr(request.state, "call_ref", None),
+        mb=round(size / 1_048_576, 3) if size else None,
+        **fields,
+    )
+
+
 @app.post("/detect")
 async def detect(request: Request) -> Response:
     s: Settings = STATE["settings"]
     det = STATE["detector"]
     if det is None:
+        _watch(request, s, status=503, error="not_ready")
         return _error("not_ready", "el detector no está cargado", status.HTTP_503_SERVICE_UNAVAILABLE)
 
     try:
         raw = await _extract_audio_bytes(request)
         decoded = decode(raw, allow_mono=s.allow_mono, allow_resample=s.allow_resample)
     except AudioDecodeError as e:
+        _watch(request, s, status=400, error=e.code)
         return _error(e.code, str(e), status.HTTP_400_BAD_REQUEST)
     except Exception:
         log.exception("fallo inesperado decodificando")
+        _watch(request, s, status=400, error="decode_failed")
         return _error("decode_failed", "no se pudo leer el audio", status.HTTP_400_BAD_REQUEST)
 
     # La cabecera mide el trabajo del modelo, no la subida ni el parseo del JSON.
@@ -187,17 +211,54 @@ async def detect(request: Request) -> Response:
         pred: Prediction = det.predict(decoded.example)
     except Exception:
         log.exception("fallo inesperado en la inferencia")
+        _watch(request, s, status=500, error="inference_failed",
+               ms=(time.perf_counter() - t0) * 1000.0)
         return _error("inference_failed", "fallo interno de inferencia",
                       status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     body = pred.to_response(extras=s.response_extras)
     elapsed_ms = (time.perf_counter() - t0) * 1000.0
+    # Después de medir: el monitor no entra en el cronómetro ni en el cuerpo de la respuesta.
+    _watch(request, s, status=200, ms=round(elapsed_ms, 2),
+           is_synthetic=bool(pred.is_synthetic), confidence=round(float(pred.confidence), 4),
+           duration_s=round(decoded.example.duration_s, 1))
     log.info(
         "detect ok dur=%.1fs ch=%d sr=%d resampled=%s ms=%.1f",
         decoded.example.duration_s, decoded.original_channels,
         decoded.original_sr, decoded.was_resampled, elapsed_ms,
     )
     return JSONResponse(content=body, headers={"X-Inference-Ms": f"{elapsed_ms:.1f}"})
+
+
+@app.get("/monitor", include_in_schema=False)
+async def monitor_page() -> Response:
+    """La página de la mesa. 404 si el monitor está apagado: no existe lo que no se activa."""
+    s: Settings = STATE["settings"]
+    if not s.monitor:
+        return _error("not_found", "monitor desactivado", status.HTTP_404_NOT_FOUND)
+    return Response(content=MONITOR_PAGE, media_type="text/html; charset=utf-8")
+
+
+@app.get("/monitor/calls", include_in_schema=False)
+async def monitor_calls(limit: int = monitor.DEFAULT_LIMIT) -> Response:
+    """Lo que alimenta la página: últimas llamadas y agregados. Nunca toca el detector."""
+    s: Settings = STATE["settings"]
+    if not s.monitor:
+        return _error("not_found", "monitor desactivado", status.HTTP_404_NOT_FOUND)
+    det = STATE["detector"]
+    calls = monitor.read(max(1, min(int(limit), 500)))
+    info: dict[str, Any] = {
+        "ready": det is not None,
+        "detector": det.name if det else None,
+        "calls": calls,
+        "summary": monitor.summary(calls),
+    }
+    if s.bundle_dir:
+        try:
+            info["threshold"] = bundle.load_manifest(s.bundle_dir).threshold
+        except Exception:  # el monitor nunca tumba nada
+            log.debug("monitor: manifest ilegible", exc_info=True)
+    return JSONResponse(content=info)
 
 
 @app.get("/health")
