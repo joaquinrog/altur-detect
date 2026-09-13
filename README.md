@@ -1,6 +1,12 @@
-# Chori — detección de voz sintética en llamadas bancarias
+<p align="center">
+  <img src="docs/assets/chori-hero.png" alt="Chori — Evidence that survives. By Chorizo Circuits HC, para Altur." width="100%">
+</p>
 
-**HackMTY 2026, track Altur.** Equipo **Chorizos Circuits**.
+<h1 align="center">Chori</h1>
+<p align="center"><em>Evidence that survives.</em></p>
+<p align="center"><strong>HackMTY 2026 · track Altur · equipo Chorizo Circuits</strong></p>
+
+---
 
 **Chori** — **C**alibrador **H**olístico **O**rtogonal de **R**espuesta **I**nmediata — es el
 sistema que decide, en tiempo real, si quien llama (canal 0 de una llamada telefónica estéreo a
@@ -51,6 +57,13 @@ orden — y el orden es la parte que vale la pena defender frente a un juez:
    semántica que proponía el reto, y variantes de fusión, ensamble y ruteo por distancia —
    ninguna se queda si no aporta evidencia medible.
 
+<p align="center">
+  <img src="docs/assets/forensics-3-biases.png" alt="Estudio forense: gain confounding, codec/channel shortcut, TTS engine leakage" width="85%">
+</p>
+
+*Respuesta correcta, razón incorrecta — tres veces. Cada uno de estos sesgos es un modelo que
+"funciona" sin haber aprendido nada sobre síntesis de voz.*
+
 ## Qué corre hoy en producción — y qué se exploró
 
 Somos explícitos sobre esto porque es exactamente el tipo de pregunta que un juez técnico hace:
@@ -70,7 +83,13 @@ Hay trabajo en curso sobre la misma rama espectral, evaluado a ciegas contra voc
 **Nada de eso está promovido ni servido**, y este README solo documenta lo que responde en el
 endpoint: `spectral_factory_lfcc_logreg@1`.
 
-## Arquitectura
+## Architecture
+
+<p align="center">
+  <img src="docs/assets/architecture-pipeline.png" alt="Pipeline: Stereo WAV 8kHz → VAD + RMS norm → Spectral + Prosodic → Late Fusion → Veredict + Confidence" width="90%">
+</p>
+
+El mismo pipeline, en detalle:
 
 ```
                     [ WAV estéreo 8kHz ]
@@ -146,8 +165,13 @@ tuviéramos.**
 - **Parte de la señal es la cadena de producción, no la voz.** Corrimos los dos controles contra
   nosotros mismos y **los dos salieron positivos**: solo el silencio del caller separa con AUC OOF
   **0.9994** [0.998, 1.000], y el canal de la agente —mismo TTS en ambas clases— con **0.7397**
-  [0.683, 0.801]; los dos más fuertes que en el baseline acústico. Sospechoso y no descartable: lo
-  seguimos auditando.
+  [0.683, 0.801]; los dos más fuertes que en el baseline acústico. Sin voz de por medio, el modelo
+  seguía acertando. Sospechoso y no descartable: lo seguimos auditando.
+
+  <p align="center">
+    <img src="docs/assets/stress-test-confound.png" alt="Silencio del canal 0: AUC 0.9994. Canal del agente, mismo TTS: AUC 0.7397. Ambos muy por encima del azar (0.50)." width="80%">
+  </p>
+
 - **Errores confiados, no de umbral.** En `val` falla dos humanas con p(sintética) entre 0.95 y
   0.997.
 - **El detector no tiene un "no sé".** Sobre entradas que no son voz —ruido blanco, silencio
@@ -347,3 +371,7 @@ Más detalle: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) ·
 [`docs/PORT_SPEC_SPECTRAL_FACTORY.md`](docs/PORT_SPEC_SPECTRAL_FACTORY.md) ·
 [`docs/DATA_PROTOCOL_CARD.md`](docs/DATA_PROTOCOL_CARD.md) ·
 [`docs/LICENSE_AUDIT.md`](docs/LICENSE_AUDIT.md).
+
+---
+
+<p align="center"><strong>353 llamadas no fueron excusa.</strong><br><em>— Evidence that survives.</em></p>
