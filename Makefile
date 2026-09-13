@@ -39,11 +39,16 @@ test:  ## pytest
 lint:  ## ruff
 	$(PY) -m ruff check src tests scripts || true
 
-serve:  ## /detect en local
-	./.venv/bin/uvicorn altur.api:app --host 0.0.0.0 --port $(PORT) --workers 2
+# Sin ALTUR_BUNDLE_DIR el API arranca con ConstantDetector y readiness responde 200:
+# es el arranque de A0, pero como fallback de demo seria una constante que se lee como
+# un modelo. El bundle va explicito aqui, igual que en el Dockerfile.
+BUNDLE_DIR ?= models/current
+
+serve:  ## /detect en local sirviendo $(BUNDLE_DIR)
+	ALTUR_BUNDLE_DIR=$(BUNDLE_DIR) ./.venv/bin/uvicorn altur.api:app --host 0.0.0.0 --port $(PORT) --workers 2
 
 serve-dev:  ## /detect con recarga automática
-	./.venv/bin/uvicorn altur.api:app --port $(PORT) --reload
+	ALTUR_BUNDLE_DIR=$(BUNDLE_DIR) ./.venv/bin/uvicorn altur.api:app --port $(PORT) --reload
 
 smoke:  ## Golpea un servidor VIVO: URL=http://host:puerto make smoke
 	$(PY) scripts/smoke.py --url $(URL)
