@@ -2,7 +2,9 @@
   <img src="docs/assets/chori-hero.png" alt="Chori — Evidence that survives. By Chorizo Circuits HC, para Altur." width="100%">
 </p>
 
-<h1 align="center">Chori</h1>
+<p align="center">
+  <img src="https://img.shields.io/badge/-CHORI-D85A30?style=for-the-badge&labelColor=D85A30&color=D85A30" alt="Chori" height="46">
+</p>
 <p align="center"><em>Evidence that survives.</em></p>
 <p align="center"><strong>HackMTY 2026 · track Altur · equipo Chorizo Circuits</strong></p>
 
@@ -27,7 +29,7 @@ entrega para que el juez pueda reportar AUC, calibración y desempates.
 
 **Endpoint vivo:** `http://64.177.80.133:8000` → [`POST /detect`](#despliegue)
 
-## La idea central: robustness no es un feature, es la estrategia
+# La idea central: robustness no es un feature, es la estrategia
 
 Nos dieron 353 llamadas para construir algo robusto a hablantes, condiciones telefónicas y
 ataques que van a seguir evolucionando. Con eso de fondo, el proceso fue deliberadamente en este
@@ -64,7 +66,7 @@ orden — y el orden es la parte que vale la pena defender frente a un juez:
 *Respuesta correcta, razón incorrecta — tres veces. Cada uno de estos sesgos es un modelo que
 "funciona" sin haber aprendido nada sobre síntesis de voz.*
 
-## Qué corre hoy en producción — y qué se exploró
+# Qué corre hoy en producción — y qué se exploró
 
 Somos explícitos sobre esto porque es exactamente el tipo de pregunta que un juez técnico hace:
 
@@ -83,7 +85,7 @@ Hay trabajo en curso sobre la misma rama espectral, evaluado a ciegas contra voc
 **Nada de eso está promovido ni servido**, y este README solo documenta lo que responde en el
 endpoint: `spectral_factory_lfcc_logreg@1`.
 
-## Architecture
+# Architecture
 
 <p align="center">
   <img src="docs/assets/architecture-pipeline.png" alt="Pipeline: Stereo WAV 8kHz → VAD + RMS norm → Spectral + Prosodic → Late Fusion → Veredict + Confidence" width="90%">
@@ -130,7 +132,7 @@ La rama prosódica (F0 vía YIN → Jitter/Shimmer → fusión tardía) vive con
 [`research/spectral_factory/`](research/spectral_factory/) — es la evidencia que sostiene por qué
 quedó fuera del bundle servido, no un experimento abandonado sin razón.
 
-## Resultados del stress test — números reales, no de la lluvia de ideas
+# Resultados del stress test — números reales, no de la lluvia de ideas
 
 Antes de decidir qué defensa construir, medimos qué rompía el sistema. Seis condiciones sobre el
 set de robustez completo, out-of-fold (cada llamada evaluada por un modelo que nunca la vio):
@@ -152,7 +154,7 @@ pitch/tempo — exactamente la evidencia que motivó no fusionarla todavía.
 mismo dataset y la misma cadena de grabación; lo que la tabla muestra bien es la **caída relativa**
 bajo cada perturbación, no la exactitud absoluta. Por qué, en la siguiente sección.
 
-## Honestidad ante los jueces — lo que no afirmamos
+# Honestidad ante los jueces — lo que no afirmamos
 
 **No tenemos un holdout limpio para el modelo servido, y no lo vamos a presentar como si lo
 tuviéramos.**
@@ -197,7 +199,7 @@ Existe un segundo bundle, `spectral_factory_lfcc_trainval_v1`, ajustado con `tra
 llamadas). **No está promovido y no se sirve:** al entrenar con `val` se acabó el holdout y sus
 métricas son tautológicas.
 
-## Correr en local
+# Correr en local
 
 ```bash
 make setup && make test                  # Python 3.12
@@ -217,7 +219,7 @@ curl -s http://127.0.0.1:8000/health/ready
 # {"status":"ready","detector":"constant@1"}                        <- NO sirve; falta el bundle
 ```
 
-## El contrato de `/detect`
+# El contrato de `/detect`
 
 Una llamada por petición, `POST` con `Content-Type: application/json`:
 
@@ -254,7 +256,7 @@ vivo a propósito, porque un proceso muerto no diagnostica. **Nunca** se cae en 
 constante por accidente: el modo constante existe solo tras poner `ALTUR_EMERGENCY_CONSTANT=1` a
 mano.
 
-## Despliegue
+# Despliegue
 
 **URL vigente:** `http://64.177.80.133:8000` — `POST /detect`
 
@@ -275,11 +277,11 @@ delante del mismo contenedor; el servicio no cambia.
 Desplegar una imagen nueva es `scripts/deploy_monitor.sh usuario@host`, que etiqueta lo que está
 servido como rollback **antes** de subir nada, compara el ID de la imagen remota contra la local y
 aborta sin tocar el contenedor si no coinciden. La IP no vive en ese script: va por argumento.
-🔴 **La WiFi del evento bloquea SSH saliente**, así que operar el servidor exige hotspot o la
+**La WiFi del evento bloquea SSH saliente**, así que operar el servidor exige hotspot o la
 consola web de Vultr. El procedimiento completo de respaldo y sus simulaciones están en
 [`docs/RUNBOOK_FAILOVER.md`](docs/RUNBOOK_FAILOVER.md).
 
-### Comprobar el endpoint
+## Comprobar el endpoint
 
 ```bash
 curl -s http://64.177.80.133:8000/health        # {"status":"alive","detector_loaded":true}
@@ -306,7 +308,7 @@ publicaron (solo biblioteca estándar):
 Requiere el dataset descargado (`make data`); ni el audio ni el manifest se redistribuyen en este
 repositorio.
 
-### Rendimiento medido
+## Rendimiento medido
 
 Medido el **2026-09-13** contra el endpoint desplegado —el contenedor Docker en Vultr, no una
 corrida local— con el cliente oficial de Altur y desde la red del evento:
@@ -330,7 +332,7 @@ misma corrida de 20 da máximo **0.129 s**.
 La balanced accuracy de esas corridas **no es validación honesta**: ver «Honestidad ante los
 jueces». Lo que estas cifras sí demuestran es contrato, disponibilidad y presupuesto de tiempo.
 
-### Troubleshooting
+## Troubleshooting
 
 | síntoma | causa probable | qué hacer |
 |---|---|---|
@@ -346,7 +348,7 @@ jueces». Lo que estas cifras sí demuestran es contrato, disponibilidad y presu
 El guion de demo, con su checklist previo y el plan de recuperación por red, está en
 [`DEMO_ALTUR.md`](DEMO_ALTUR.md).
 
-## Equipo
+# Equipo
 
 | Persona | Aporte | Dónde vive |
 |---|---|---|
@@ -358,7 +360,7 @@ El guion de demo, con su checklist previo y el plan de recuperación por red, es
 El trabajo de Biniza se hizo en un repositorio aparte y se incorporó aquí **sin** los archivos por
 llamada que contenían identificadores del dataset.
 
-## Datos y privacidad
+# Datos y privacidad
 
 El audio, `manifest.csv`, los identificadores de llamada, los folds y las predicciones por
 llamada **no se redistribuyen**, por los términos del dataset. Solo se publican agregados.
