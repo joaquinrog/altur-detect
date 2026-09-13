@@ -80,6 +80,39 @@ def test_sin_habla_usa_el_canal_completo_y_lo_declara():
     assert diag["vad_fallback_full_channel"] is True
 
 
+def test_el_vad_de_dos_canales_no_cambia_los_turnos_del_caller(golden_example):
+    solo_ch0 = sfvad.energy_adaptive(golden_example)
+    ambos = sfvad.energy_adaptive_ch01(golden_example)
+    assert ambos.by_channel(0) == solo_ch0.by_channel(0)
+    assert len(ambos.by_channel(1)) > 0
+
+
+def test_silencio_es_el_complemento_exacto_de_los_turnos(golden_example):
+    seg = sfvad.energy_adaptive(golden_example)
+    audio = np.asarray(golden_example.ch0, dtype=np.float64)
+    habla = lfcc._speech_chunks(audio, seg.by_channel(0), golden_example.sr)
+    silencio = lfcc._silence_chunks(audio, seg.by_channel(0), golden_example.sr)
+    assert sum(map(len, habla)) + sum(map(len, silencio)) == len(audio)
+
+
+def test_los_controles_leen_su_region_y_no_la_de_c2(golden_example):
+    ex = AudioExample(golden_example.ch0, golden_example.ch1, seg=sfvad.energy_adaptive_ch01(golden_example))
+    c2, _ = lfcc.extract(ex)
+    ch1, d_ch1 = lfcc.extract_ch1(ex)
+    sil, d_sil = lfcc.extract_ch0_silence(ex)
+    assert list(ch1) == list(lfcc.CH1_FEATURE_ORDER) and list(sil) == list(lfcc.SILENCE_FEATURE_ORDER)
+    assert d_ch1["region_seconds"] > 0 and d_sil["region_seconds"] > 0
+    assert not d_sil["vad_fallback_full_channel"]
+    assert not np.allclose(list(c2.values()), list(ch1.values()))
+    assert not np.allclose(list(c2.values()), list(sil.values()))
+
+
+def test_control_del_agente_con_entrada_mono():
+    mono = AudioExample(np.zeros(8000, dtype=np.float32), None)
+    feats, diag = lfcc.extract_ch1(mono)
+    assert diag["insufficient_audio"] is True and set(feats.values()) == {0.0}
+
+
 def test_audio_sin_un_frame_no_revienta():
     corto = np.zeros(100, dtype=np.float32)
     ex = AudioExample(corto, corto.copy())

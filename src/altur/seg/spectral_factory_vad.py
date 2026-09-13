@@ -88,3 +88,19 @@ def energy_adaptive(ex: AudioExample) -> Segmentation:
     """Turnos del canal 0 con el VAD del freeze `cd028c7`."""
     turns = tuple(Turn(0, s, e) for s, e in detect_speech_segments(ex.ch0, ex.sr))
     return Segmentation(turns, source="spectral_factory.energy_adaptive@1", params=dict(_PARAMS))
+
+
+_PARAMS_CH01 = _PARAMS | {"channels": [0, 1]}
+
+
+@turn_sources.register(
+    "spectral_factory.energy_adaptive_ch01", version=1, is_oracle=False, **_PARAMS_CH01
+)
+def energy_adaptive_ch01(ex: AudioExample) -> Segmentation:
+    """El mismo VAD sobre los dos canales. Solo para el control del canal del agente (D-A7.6)."""
+    turns = [Turn(0, s, e) for s, e in detect_speech_segments(ex.ch0, ex.sr)]
+    if not ex.is_mono:
+        turns += [Turn(1, s, e) for s, e in detect_speech_segments(ex.ch1, ex.sr)]
+    return Segmentation(
+        tuple(turns), source="spectral_factory.energy_adaptive_ch01@1", params=dict(_PARAMS_CH01)
+    )

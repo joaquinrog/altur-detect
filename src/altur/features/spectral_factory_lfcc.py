@@ -180,6 +180,55 @@ def features_from_chunks(chunks: list[np.ndarray], sr: int) -> tuple[np.ndarray 
     return pooled, gain
 
 
+def _turn_bounds(turns, n_samples: int, sr: int) -> list[tuple[int, int]]:
+    """Índices de muestra de cada turno, con el mismo truncado que el original."""
+    return [
+        (max(0, int(t.start * sr)), min(n_samples, int(t.end * sr)))
+        for t in sorted(turns, key=lambda t: t.start)
+    ]
+
+
+def _speech_chunks(audio: np.ndarray, turns, sr: int) -> list[np.ndarray]:
+    return [audio[i0:i1] for i0, i1 in _turn_bounds(turns, len(audio), sr) if i1 - i0 >= FRAME_LENGTH]
+
+
+def _silence_chunks(audio: np.ndarray, turns, sr: int) -> list[np.ndarray]:
+    """Complemento exacto de los turnos: lo que queda fuera de `_speech_chunks`."""
+    gaps, cursor = [], 0
+    for i0, i1 in _turn_bounds(turns, len(audio), sr):
+        if i0 > cursor:
+            gaps.append((cursor, i0))
+        cursor = max(cursor, i1)
+    if cursor < len(audio):
+        gaps.append((cursor, len(audio)))
+    return [audio[a:b] for a, b in gaps if b - a >= FRAME_LENGTH]
+
+
+def _result(names, chunks, n_turns: int, sr: int, fallback: bool) -> ExtractorResult:
+    pooled, gain = features_from_chunks(chunks, sr) if chunks else (None, 1.0)
+    insufficient = pooled is None
+    if insufficient:
+        pooled = np.zeros(len(names))
+    features = {name: float(v) for name, v in zip(names, pooled)}
+    diagnostics = {
+        "n_turns": n_turns,
+        "n_chunks": len(chunks),
+        "region_seconds": round(sum(len(c) for c in chunks) / sr, 3),
+        "gain_db": round(20.0 * math.log10(gain), 3),
+        "vad_fallback_full_channel": bool(fallback),
+        "insufficient_audio": bool(insufficient),
+    }
+    return features, diagnostics
+
+
+def _speech_with_fallback(audio: np.ndarray, turns, sr: int) -> tuple[list[np.ndarray], bool]:
+    chunks = _speech_chunks(audio, turns, sr)
+    fallback = not chunks
+    if fallback and len(audio) >= FRAME_LENGTH:
+        chunks = [audio]
+    return chunks, fallback
+
+
 @extractors.register(
     NAMESPACE, version=1, channels=(0,), needs_seg=True,
     license="BSD-3-Clause", product_safe=True, budget_ms=150,
@@ -187,28 +236,43 @@ def features_from_chunks(chunks: list[np.ndarray], sr: int) -> tuple[np.ndarray 
 def extract(ex: AudioExample) -> ExtractorResult:
     audio = np.asarray(ex.ch0, dtype=np.float64)
     turns = ex.seg.by_channel(0) if ex.seg is not None else ()
-    chunks = []
-    for turn in turns:
-        i0, i1 = max(0, int(turn.start * ex.sr)), min(len(audio), int(turn.end * ex.sr))
-        if i1 - i0 >= FRAME_LENGTH:
-            chunks.append(audio[i0:i1])
+    chunks, fallback = _speech_with_fallback(audio, turns, ex.sr)
+    return _result(FEATURE_ORDER, chunks, len(turns), ex.sr, fallback)
 
-    fallback = not chunks
-    if fallback and len(audio) >= FRAME_LENGTH:
-        chunks = [audio]
 
-    pooled, gain = features_from_chunks(chunks, ex.sr) if chunks else (None, 1.0)
-    insufficient = pooled is None
-    if insufficient:
-        pooled = np.zeros(len(FEATURE_ORDER))
+# ------------------------------------------------------------------ controles de confound
+# A3.6 sobre LFCC (D-A7.6). El mismo pipeline sobre regiones que NO deberían separar las clases.
+# Se registran para el runner; no son candidatos a bundle.
 
-    features = {name: float(v) for name, v in zip(FEATURE_ORDER, pooled)}
-    diagnostics = {
-        "n_turns_ch0": len(turns),
-        "n_chunks": len(chunks),
-        "speech_seconds": round(sum(len(c) for c in chunks) / ex.sr, 3),
-        "gain_db": round(20.0 * math.log10(gain), 3),
-        "vad_fallback_full_channel": bool(fallback),
-        "insufficient_audio": bool(insufficient),
-    }
-    return features, diagnostics
+
+def _names(prefix: str) -> tuple[str, ...]:
+    return tuple(f"{prefix}.{name}_{stat}" for name in _dim_names() for stat in ("mean", "std"))
+
+
+CH1_FEATURE_ORDER = _names(f"{NAMESPACE}.ch1")
+SILENCE_FEATURE_ORDER = _names(f"{NAMESPACE}.ch0.silence")
+
+
+@extractors.register(
+    f"{NAMESPACE}.ch1", version=1, channels=(1,), needs_seg=True,
+    license="BSD-3-Clause", product_safe=True, budget_ms=150,
+)
+def extract_ch1(ex: AudioExample) -> ExtractorResult:
+    """El canal del agente: mismo TTS en ambas clases. Si separa, separa la cadena."""
+    if ex.is_mono:
+        return _result(CH1_FEATURE_ORDER, [], 0, ex.sr, fallback=False)
+    audio = np.asarray(ex.ch1, dtype=np.float64)
+    turns = ex.seg.by_channel(1) if ex.seg is not None else ()
+    chunks, fallback = _speech_with_fallback(audio, turns, ex.sr)
+    return _result(CH1_FEATURE_ORDER, chunks, len(turns), ex.sr, fallback)
+
+
+@extractors.register(
+    f"{NAMESPACE}.ch0.silence", version=1, channels=(0,), needs_seg=True,
+    license="BSD-3-Clause", product_safe=True, budget_ms=150,
+)
+def extract_ch0_silence(ex: AudioExample) -> ExtractorResult:
+    """Los tramos del caller SIN habla. Sin respaldo al canal completo: mezclaría habla."""
+    audio = np.asarray(ex.ch0, dtype=np.float64)
+    turns = ex.seg.by_channel(0) if ex.seg is not None else ()
+    return _result(SILENCE_FEATURE_ORDER, _silence_chunks(audio, turns, ex.sr), len(turns), ex.sr, False)
