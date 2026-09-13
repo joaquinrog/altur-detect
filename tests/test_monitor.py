@@ -69,10 +69,25 @@ def test_la_pagina_prioriza_el_ultimo_veredicto_y_no_reanima_polls(monitor_clien
     html = monitor_client.get("/monitor").text
 
     assert html.count('class="sausage-link"') == 10
-    assert "probabilidad calibrada de este veredicto" in html
+    assert "El juez da <b>30 segundos</b> por llamada." in html
     assert "prefers-reduced-motion: reduce" in html
     assert "lastCallKey" in html
     assert "~2 RTT" in html
+
+
+def test_la_confianza_no_se_presenta_como_accuracy(monitor_client):
+    """Bini la leyó como accuracy en el ensayo: la etiqueta tiene que decir lo que es."""
+    html = monitor_client.get("/monitor").text
+    assert "<b>Confianza</b>" in html
+    assert "en esta llamada, no el accuracy del modelo" in html
+
+
+def test_fuente_y_logos_viajan_embebidos(monitor_client):
+    """Sin salida a internet: la fuente y los logos solo pueden llegar como data:."""
+    html = monitor_client.get("/monitor").text
+    assert "__FONT__" not in html and "__ALTUR__" not in html and "__CHORI__" not in html
+    assert "url(data:font/woff2;base64," in html
+    assert html.count('src="data:image/png;base64,') == 2
 
 
 def test_un_monitor_roto_no_tumba_detect(monitor_client, golden_b64, monkeypatch):
