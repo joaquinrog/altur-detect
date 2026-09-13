@@ -1,0 +1,130 @@
+{
+  "family": "A3.6_confound_lfcc_v1",
+  "declared_at": "2026-09-13T00:43:06.654016+00:00",
+  "decision": "D-A7.6",
+  "commit": "688975b014a223d1f925fc7ec2fb85c0b1075650",
+  "protocol": "official_v1",
+  "split": "train",
+  "model": {
+    "logreg": {
+      "class_weight": "balanced",
+      "max_iter": 1000
+    },
+    "calibrator": "platt@1",
+    "inner_folds": 3
+  },
+  "results": [
+    {
+      "name": "ch1_only_lfcc",
+      "question": "¿El LFCC del canal del AGENTE (mismo TTS en ambas clases) separa las clases?",
+      "n": 282,
+      "auc": 0.7396973346598942,
+      "auc_ci95": [
+        0.6827724949628975,
+        0.8006672659601912
+      ],
+      "p_location": 9.092743635541156e-12,
+      "p_scale": 0.04083661539905666,
+      "scale_auc": 0.28800335131172433,
+      "q_location": 1.8185487271082312e-11,
+      "q_scale": 0.04900393847886799,
+      "positive": true,
+      "invalidated_claims": [
+        "C2 mide propiedades de la voz del caller.",
+        "La separación de C2 es atribuible a la síntesis y no a la cadena de grabación."
+      ],
+      "notes": [
+        "Grupos conservadores (1 llamada = 1 grupo, D-A1.2): el intervalo no cubre dependencia latente entre llamadas del mismo hablante, voz o cadena."
+      ]
+    },
+    {
+      "name": "silence_only_lfcc",
+      "question": "¿El LFCC de los tramos SIN habla del caller separa las clases?",
+      "n": 282,
+      "auc": 0.9994239932973765,
+      "auc_ci95": [
+        0.9977361390014174,
+        1.0
+      ],
+      "p_location": 7.822714964190637e-46,
+      "p_scale": 0.4409980680729853,
+      "scale_auc": 0.004555689375294549,
+      "q_location": 2.3468144892571912e-45,
+      "q_scale": 0.4409980680729853,
+      "positive": true,
+      "invalidated_claims": [
+        "La separación de C2 viene del habla del caller.",
+        "C2 transfiere a un set con la cadena de grabación normalizada."
+      ],
+      "notes": [
+        "Grupos conservadores (1 llamada = 1 grupo, D-A1.2): el intervalo no cubre dependencia latente entre llamadas del mismo hablante, voz o cadena."
+      ]
+    },
+    {
+      "name": "clean_speech_lfcc",
+      "question": "Referencia: ¿el LFCC del habla del caller (C2) separa las clases?",
+      "n": 282,
+      "auc": 1.0,
+      "auc_ci95": [
+        1.0,
+        1.0
+      ],
+      "p_location": 6.189294259983359e-46,
+      "p_scale": 0.013523215044349415,
+      "scale_auc": 0.0,
+      "q_location": 2.3468144892571912e-45,
+      "q_scale": 0.02028482256652412,
+      "positive": true,
+      "invalidated_claims": [],
+      "notes": [
+        "Grupos conservadores (1 llamada = 1 grupo, D-A1.2): el intervalo no cubre dependencia latente entre llamadas del mismo hablante, voz o cadena."
+      ]
+    }
+  ],
+  "diagnostic_rates_by_class": {
+    "ch1_only_lfcc": {
+      "vad_fallback_full_channel": {
+        "human": 0.0,
+        "synthetic": 0.0
+      },
+      "insufficient_audio": {
+        "human": 0.0,
+        "synthetic": 0.0
+      }
+    },
+    "silence_only_lfcc": {
+      "vad_fallback_full_channel": {
+        "human": 0.0,
+        "synthetic": 0.0
+      },
+      "insufficient_audio": {
+        "human": 0.0,
+        "synthetic": 0.0
+      }
+    },
+    "clean_speech_lfcc": {
+      "vad_fallback_full_channel": {
+        "human": 0.0,
+        "synthetic": 0.0
+      },
+      "insufficient_audio": {
+        "human": 0.0,
+        "synthetic": 0.0
+      }
+    }
+  },
+  "baseline_acoustic_D-A3.6": {
+    "ch1_only": {
+      "auc": 0.6409,
+      "scale_auc": 0.5
+    },
+    "silence_only": {
+      "auc": 0.9662,
+      "scale_auc": 0.0157
+    },
+    "clean_speech": {
+      "auc": 0.9791,
+      "scale_auc": 0.0367
+    }
+  }
+}
