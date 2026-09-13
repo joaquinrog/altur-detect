@@ -164,7 +164,11 @@ class BundledDetector:
             )
         try:
             feats = self.features(ex)
-            p = self._export.p_synthetic_from_mapping(feats)
+            # Un bundle puede declarar un subconjunto estable de un extractor versionado.
+            # La proyección sigue fallando si falta una feature; solo descarta salidas que el
+            # modelo no consume (C3 usa 100 de las 120 LFCC de su extractor).
+            projected = {name: feats[name] for name in self.feature_order if name in feats}
+            p = self._export.p_synthetic_from_mapping(projected)
         except ModelError as exc:
             raise ServingError(str(exc)) from exc
         if self._calibrator is not None:
