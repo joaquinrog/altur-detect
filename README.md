@@ -85,6 +85,29 @@ Hay trabajo en curso sobre la misma rama espectral, evaluado a ciegas contra voc
 **Nada de eso está promovido ni servido**, y este README solo documenta lo que responde en el
 endpoint: `spectral_factory_lfcc_logreg@1`.
 
+## Un candidato que decidimos no promover
+
+También construimos un candidato experimental, C3, para atacar dos riesgos observados en C2:
+dependencia de características estáticas del canal y cobertura insuficiente de voces sintéticas.
+
+C3 conserva la regresión logística y el extractor LFCC, pero descarta las 20 medias estáticas y
+entrena con 75 voces sintéticas adicionales. En diagnósticos sobre esas voces recuperó detección bajo
+G.711 sin aumentar de forma relevante el costo de inferencia.
+
+No lo promovimos. Las llamadas adicionales participaron en su entrenamiento, por lo que esos
+resultados no demuestran generalización a voces desconocidas. Además, un control basado únicamente
+en silencios continuó separando las clases y observamos una falsa alarma humana adicional en una
+muestra pequeña.
+
+Preferimos entregar el C2 desplegado y probado operativamente antes que sustituirlo por una mejora
+que todavía no cuenta con un holdout independiente. C3 queda como registro de investigación, no
+como parte del endpoint evaluado.
+
+| Modelo | Estado | Razón |
+|---|---|---|
+| C2 | Servido | Bundle estable y endpoint validado de punta a punta |
+| C3 | Experimental, no promovido | Mejora en datos quemados; falta validación con identidades nuevas |
+
 # 🌭 Architecture
 
 <p align="center">
@@ -244,8 +267,9 @@ HTTP 200 con:
 veredicto es humano con 0.96, son 96 % de confianza en *humano*. Este servicio la entrega en todas
 las respuestas, para que Altur pueda reportar AUC y calibración y usarla de desempate.
 
-El juez permite 30 segundos por llamada, las llamadas duran de 1 a 4 minutos y el body llega a unos
-5 MB. Un timeout, un status distinto de 200 o una respuesta sin `is_synthetic` booleano cuentan como
+El juez permite 30 segundos por llamada y las llamadas duran de 1 a 4.5 minutos. **En el dataset
+oficial, el cuerpo JSON pesa de 2.6 a 11.7 MB** (WAV de 1.95 a 8.76 MB, más un tercio por el
+base64). Un timeout, un status distinto de 200 o una respuesta sin `is_synthetic` booleano cuentan como
 error. La métrica principal es balanced accuracy sobre callers y voces no vistos. El servicio
 también tolera WAV crudo (`Content-Type: audio/wav`) y multipart, pero el camino oficial es el JSON
 de arriba.
@@ -311,7 +335,20 @@ repositorio.
 ## Rendimiento medido
 
 Medido el **2026-09-13** contra el endpoint desplegado —el contenedor Docker en Vultr, no una
-corrida local— con el cliente oficial de Altur y desde la red del evento:
+corrida local— con el cliente oficial de Altur y desde la red del evento.
+
+**Ensayo completo: las 282 llamadas de `train`, en serie y sin pausa, igual que el juez.**
+282/282 respondidas, **0 errores**, **ninguna por encima de 1.04 s** contra un límite de 30 s:
+la peor llamada usó el **3.5 %** del presupuesto. 1.7 GB de audio subidos en 3.9 minutos.
+
+| medida (n = 282) | mediana | p95 | peor |
+|---|---|---|---|
+| Lo que mide el cliente (lo mismo que el juez) | **0.67 s** | **0.94 s** | **1.04 s** |
+| El servidor, de la subida a la respuesta | 0.63 s | 0.89 s | 0.98 s |
+| Solo la subida del audio | 538 ms | — | 876 ms |
+| Solo el modelo | **34 ms** | — | 108 ms |
+
+Pruebas anteriores, el mismo día y contra el mismo endpoint:
 
 | prueba | resultado |
 |---|---|
@@ -320,17 +357,22 @@ corrida local— con el cliente oficial de Altur y desde la red del evento:
 | cuerpo JSON de **11.69 MB**, 5 corridas | HTTP 200 en **1.66–3.55 s**; inferencia en el servidor **59.5–62.3 ms** |
 | base64 inválido | HTTP **400**, `{"error":"bad_base64"}`, sin stack trace |
 
-**78 llamadas al endpoint desplegado, 0 errores, ninguna por encima de 3.4 s** contra un límite de
-30 s. El cuerpo esperado por el juez ronda los 5 MB; con más del doble de ese tamaño el margen
-sigue siendo de **~9×** en el peor caso medido.
+**En total, 360 llamadas al endpoint desplegado y 0 errores.**
 
-**Lo que varía es la red, no el servidor.** La inferencia se mueve dentro de 3 ms entre corridas
-(59.5–62.3 ms) mientras el tiempo total va de 1.66 s a 3.55 s sobre exactamente el mismo cuerpo: lo
-que se está midiendo casi por completo es la subida del cliente. En local, sin red de por medio, la
-misma corrida de 20 da máximo **0.129 s**.
+**Lo que varía es la red, no el servidor.** A las 05:53 CST, tres llamadas de ~6 MB tardaron
+**7.7–8.0 s** cada una: 7.3–7.8 s de subida y 35–42 ms de modelo. Once minutos después, sin tocar
+el contenedor, el bundle ni el umbral, las 282 llamadas del ensayo tuvieron una mediana de
+**0.67 s**. **La misma llamada puede costar 12 veces más según cómo esté la red del evento.**
+El modelo decide en ~34 ms pase lo que pase; decodificar el audio cuesta más que decidir.
 
-La balanced accuracy de esas corridas **no es validación honesta**: ver «Honestidad ante los
-jueces». Lo que estas cifras sí demuestran es contrato, disponibilidad y presupuesto de tiempo.
+Por eso el margen que defendemos es el del **peor caso de red observado: ~8 s contra 30 s, 3.7×**.
+Con la red en buen estado, el margen es ~29×. En local, sin red de por medio, 20 llamadas tardan
+como máximo **0.129 s**.
+
+La balanced accuracy de estas corridas (**1.0 en el ensayo**) **no es validación honesta**: son
+llamadas de `train`, con las que se entrenó el modelo. Ver «Transparencia: nuestro diferenciador
+para real world deployment». Lo que estas cifras sí demuestran es contrato, disponibilidad y
+presupuesto de tiempo.
 
 ## Troubleshooting
 
@@ -345,8 +387,8 @@ jueces». Lo que estas cifras sí demuestran es contrato, disponibilidad y presu
 | SSH al servidor cuelga | la WiFi del evento bloquea SSH saliente | hotspot, o la consola web de Vultr |
 | el puerto 8000 ya está ocupado en local | otro proceso o contenedor | `PORT=8001 make serve` |
 
-El guion de demo, con su checklist previo y el plan de recuperación por red, está en
-[`DEMO_ALTUR.md`](DEMO_ALTUR.md).
+El guion de demo —cuatro mini-demos en vivo—, con su checklist previo y el plan de recuperación
+por red, está en [`DEMO_ALTUR.md`](DEMO_ALTUR.md).
 
 # Equipo
 
