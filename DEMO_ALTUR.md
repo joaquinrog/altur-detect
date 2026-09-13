@@ -100,7 +100,7 @@ Y una sola llamada, la más pesada que tenemos, para enseñar el presupuesto de 
 
 ```bash
 curl -sS -m 30 -o /dev/null -D - -X POST \
-  -H 'Content-Type: audio/wav' --data-binary @data/audio/call_bd2262567810.wav \
+  -H 'Content-Type: audio/wav' --data-binary @data/audio/<la llamada más larga de train>.wav \
   -w 'http=%{http_code} total=%{time_total}s\n' \
   http://64.177.80.133:8000/detect
 ```
