@@ -4,9 +4,12 @@ PIP     := ./.venv/bin/pip
 PORT    ?= 8000
 URL     ?= http://127.0.0.1:$(PORT)
 IMAGE   ?= altur-detect:local
+BUNDLE  ?= models/current
+SPLIT   ?= train
+N       ?= 40
 
-.PHONY: help setup test lint serve smoke docker docker-run bundle bundle-test docs-pack clean \
-	data protocol leak-test failover-sim
+.PHONY: help setup test lint serve smoke docker docker-run bundle bundle-lfcc bundle-test e2e \
+	docs-pack clean data protocol leak-test failover-sim
 
 help:  ## Muestra esta ayuda
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | \
@@ -55,6 +58,9 @@ bundle:  ## Entrena el candidato y sella el bundle en models/acoustic_ch0_v1
 	$(PY) scripts/build_bundle.py --out models/acoustic_ch0_v1
 	@echo "  selecciona el candidato con: cp -a models/acoustic_ch0_v1 models/current"
 
+bundle-lfcc:  ## C2 de D-A7.3 (LFCC portado a NumPy) en models/spectral_factory_lfcc_v1
+	$(PY) scripts/build_bundle_lfcc.py --out models/spectral_factory_lfcc_v1
+
 failover-sim:  ## Ejecuta las 4 simulaciones locales del runbook (A4.4)
 	$(PY) scripts/build_bundle.py --out /tmp/altur-prev >/dev/null
 	$(PY) scripts/failover_sim.py --bundle models/current --previous /tmp/altur-prev
@@ -65,6 +71,10 @@ bundle-test:  ## 🔴 Construir, guardar, cargar y predecir en un contenedor LIM
 	@sleep 6
 	-$(PY) scripts/smoke.py --url http://127.0.0.1:18000
 	@docker rm -f altur-bundle-test >/dev/null
+
+e2e:  ## 🔴 Cliente oficial del juez vs contenedor limpio (2 CPU, 8 GB): BUNDLE=... SPLIT=train N=40
+	docker build -t $(IMAGE) .
+	$(PY) scripts/e2e_judge.py --image $(IMAGE) --bundle $(BUNDLE) --split $(SPLIT) --n $(N)
 
 docs-pack:  ## Empaqueta los docs internos (no versionados) para pasarlos al equipo
 	@tar czf /tmp/altur-docs.tar.gz AGENTS.md CLAUDE.md docs/ 2>/dev/null && \

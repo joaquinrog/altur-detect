@@ -182,6 +182,27 @@ def fetch_audio(*, force: bool) -> None:
     print(f"  {len(list(AUDIO_DIR.glob('*.wav')))} WAV en {AUDIO_DIR.relative_to(ROOT)}")
 
 
+CHECKER = DATA / "official" / "check_endpoint.py"
+# FACT: SHA-256 de `scripts/check_endpoint.py` en alturio/hackmty26@429adf7. Es el cliente con
+# el que juzgan; `scripts/e2e_judge.py` se niega a correr con cualquier otro.
+CHECKER_SHA256 = "593f78ceb80017e791f0f8d552ca6a7b3b6763c11beedfa1f68ab1a55c363364"
+
+
+def fetch_official_checker(*, force: bool) -> None:
+    """El cliente oficial del juez, fijado al commit y verificado. Vive en `data/`: no se versiona."""
+    if CHECKER.exists() and not force and sha256_file(CHECKER) == CHECKER_SHA256:
+        print("- cliente oficial del juez: ya esta")
+        return
+    print("- cliente oficial del juez (scripts/check_endpoint.py)")
+    download(f"https://raw.githubusercontent.com/{REPO}/{COMMIT}/scripts/check_endpoint.py", CHECKER)
+    got = sha256_file(CHECKER)
+    if got != CHECKER_SHA256:
+        CHECKER.unlink(missing_ok=True)
+        raise DataError(
+            f"SHA-256 del cliente oficial no coincide\n  esperaba {CHECKER_SHA256}\n  obtuve   {got}"
+        )
+
+
 def verify() -> int:
     """Comprueba que las tres piezas cuadran entre si. Devuelve el codigo de salida."""
     problems: list[str] = []
@@ -241,6 +262,7 @@ def main() -> int:
     if not args.check:
         try:
             fetch_repo_metadata(force=args.force)
+            fetch_official_checker(force=args.force)
             fetch_audio(force=args.force)
         except DataError as e:
             print(f"\nERROR: {e}", file=sys.stderr)

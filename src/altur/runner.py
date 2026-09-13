@@ -18,14 +18,17 @@ import numpy as np
 from . import transforms as builtin_transforms
 from . import transforms_v2 as builtin_transforms_v2
 from .cache import FeatureCache, cache_key
-from .features import acoustic_minimal, behavioral
+from .features import acoustic_minimal, behavioral, spectral_factory_lfcc
 from .ledger import write_aggregate, write_run
 from .registry import RegistryError, extractors, transforms, turn_sources
-from .seg import vad
+from .seg import spectral_factory_vad, vad
 from .types import AudioExample
 
 # Imports are deliberately explicit: registration must never depend on filesystem discovery.
-_BUILTIN_PLUGINS = (acoustic_minimal, behavioral, vad, builtin_transforms, builtin_transforms_v2)
+_BUILTIN_PLUGINS = (
+    acoustic_minimal, behavioral, spectral_factory_lfcc, vad, spectral_factory_vad,
+    builtin_transforms, builtin_transforms_v2,
+)
 
 
 class RunnerError(RuntimeError):

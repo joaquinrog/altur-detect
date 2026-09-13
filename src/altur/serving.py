@@ -23,10 +23,10 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from .features import acoustic_minimal, behavioral
+from .features import acoustic_minimal, behavioral, spectral_factory_lfcc
 from .models.base import LinearExport, ModelError
 from .registry import RegistryError, audit_product_safety, extractors, turn_sources
-from .seg import vad
+from .seg import spectral_factory_vad, vad
 from .types import AudioExample, Prediction
 
 # Los plugins que un bundle puede servir. El import es EXPLÍCITO, igual que en `runner.py`:
@@ -34,7 +34,7 @@ from .types import AudioExample, Prediction
 # acabaría sirviendo lo que hubiera en el directorio en vez de lo que declara el manifest.
 # Todos son NumPy puro. `seg/vad.py` importa `webrtcvad` dentro de la función `webrtc`, no
 # al importar el módulo, así que `energy@1` no arrastra la dependencia a la imagen.
-_SERVABLE_PLUGINS = (acoustic_minimal, behavioral, vad)
+_SERVABLE_PLUGINS = (acoustic_minimal, behavioral, spectral_factory_lfcc, vad, spectral_factory_vad)
 
 # Política de confianza. `confidence` es la probabilidad calibrada DE LA CLASE REPORTADA,
 # no P(synthetic): si el veredicto es `human`, devolver P(synthetic)=0.02 como "confianza"
