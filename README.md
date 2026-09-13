@@ -29,7 +29,7 @@ entrega para que el juez pueda reportar AUC, calibración y desempates.
 
 **Endpoint vivo:** `http://64.177.80.133:8000` → [`POST /detect`](#despliegue)
 
-# La idea central: robustness no es un feature, es la estrategia
+# 🌭 Robustness: la strategia.
 
 Nos dieron 353 llamadas para construir algo robusto a hablantes, condiciones telefónicas y
 ataques que van a seguir evolucionando. Con eso de fondo, el proceso fue deliberadamente en este
@@ -66,7 +66,7 @@ orden — y el orden es la parte que vale la pena defender frente a un juez:
 *Respuesta correcta, razón incorrecta — tres veces. Cada uno de estos sesgos es un modelo que
 "funciona" sin haber aprendido nada sobre síntesis de voz.*
 
-# Qué corre hoy en producción — y qué se exploró
+# 🌭 Y Siete Iteraciones Después...
 
 Somos explícitos sobre esto porque es exactamente el tipo de pregunta que un juez técnico hace:
 
@@ -85,7 +85,7 @@ Hay trabajo en curso sobre la misma rama espectral, evaluado a ciegas contra voc
 **Nada de eso está promovido ni servido**, y este README solo documenta lo que responde en el
 endpoint: `spectral_factory_lfcc_logreg@1`.
 
-# Architecture
+# 🌭 Architecture
 
 <p align="center">
   <img src="docs/assets/architecture-pipeline.png" alt="Pipeline: Stereo WAV 8kHz → VAD + RMS norm → Spectral + Prosodic → Late Fusion → Veredict + Confidence" width="90%">
@@ -122,7 +122,7 @@ de código, y si un artefacto no cuadra con su hash el servicio devuelve 503 en 
 El rollback es `acoustic_ch0_logreg@1` — 11 features espectrales del canal 0, AUC OOF **0.978**
 [0.961, 0.991] sobre `train` — en `models/acoustic_ch0_v1`.
 
-⚠️ **La simulación de G.711 y el paso-banda del punto 5 son parte de la investigación, no del
+OJO: **La simulación de G.711 y el paso-banda del punto 5 son parte de la investigación, no del
 bundle servido.** El `transform_refs` del bundle está vacío: el port a NumPy que corre en
 producción no incorporó la aumentación telefónica
 ([`docs/PORT_SPEC_SPECTRAL_FACTORY.md`](docs/PORT_SPEC_SPECTRAL_FACTORY.md) la marca como no
@@ -132,7 +132,7 @@ La rama prosódica (F0 vía YIN → Jitter/Shimmer → fusión tardía) vive con
 [`research/spectral_factory/`](research/spectral_factory/) — es la evidencia que sostiene por qué
 quedó fuera del bundle servido, no un experimento abandonado sin razón.
 
-# Resultados del stress test — números reales, no de la lluvia de ideas
+# 🌭 Stress Test
 
 Antes de decidir qué defensa construir, medimos qué rompía el sistema. Seis condiciones sobre el
 set de robustez completo, out-of-fold (cada llamada evaluada por un modelo que nunca la vio):
@@ -150,11 +150,11 @@ Fuente: `research/spectral_factory/phase1_stress_test/`. La rama espectral es la
 robustez del sistema servido; la prosódica es robusta a ruido/códec pero se degrada fuerte con
 pitch/tempo — exactamente la evidencia que motivó no fusionarla todavía.
 
-⚠️ **El 1.000 de la fila «Clean» no es una nota de aprobación.** Es una columna saturada sobre el
+OJO: **El 1.000 de la fila «Clean» no es una nota de aprobación.** Es una columna saturada sobre el
 mismo dataset y la misma cadena de grabación; lo que la tabla muestra bien es la **caída relativa**
 bajo cada perturbación, no la exactitud absoluta. Por qué, en la siguiente sección.
 
-# Honestidad ante los jueces — lo que no afirmamos
+# 🌭 Transparencia: Nuestro diferenciador para Real World Deployment
 
 **No tenemos un holdout limpio para el modelo servido, y no lo vamos a presentar como si lo
 tuviéramos.**
