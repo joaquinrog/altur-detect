@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from altur.registry import extractors, transforms, turn_sources
-from altur.runner import RunnerError, run_experiment
+from altur.runner import RunnerError, run_experiment, validate_experiment_spec
 from altur.types import AudioExample, DatasetRecord, Segmentation
 
 _SPY_CALLS = []
@@ -126,6 +126,25 @@ def test_runner_rejects_non_train_split_before_dataset_load(tmp_path, split):
             artifact_root=tmp_path / "artifacts", ledger_root=tmp_path / "ledger",
             code_digest="sha256:v1:code", commit="abc123", environment={}, code_version="0.1.0",
         )
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"split": "val"},                              # sin la bandera, `val` sigue cerrado
+        {"split": "val", "allow_val_fit": False},      # la bandera en falso no abre nada
+        {"split": "all", "allow_val_fit": True},       # la bandera no habilita otros splits
+    ],
+)
+def test_allow_val_fit_only_opens_val_and_only_when_true(overrides):
+    """La puerta de D-A7.4 es estrecha a propósito: `val`, y solo con `allow_val_fit: true`."""
+    with pytest.raises(RunnerError, match="split must be exactly 'train'"):
+        validate_experiment_spec(spec(**overrides))
+
+
+def test_allow_val_fit_true_lets_val_through():
+    """Con la bandera explícita, `val` pasa. Es lo que usa scripts/build_bundle_lfcc.py --use-val."""
+    validate_experiment_spec(spec(split="val", allow_val_fit=True))
 
 
 def _run_kwargs(tmp_path):

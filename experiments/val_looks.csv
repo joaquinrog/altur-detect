@@ -6,3 +6,6 @@ UNK (2026-09-12 ~23:25Z),s11_bini_cd028c7_val_all_n71,"joaquin (sesión 11, Open
 2026-09-12T23:55:29Z,s12_D-A7.3_C0_acoustic_ch0_logreg@1_val71,joaquin (sesión 12),"preregistro D-A7.3: check_endpoint.py oficial --split val --n 0, una sola corrida"
 2026-09-12T23:55:34Z,s12_D-A7.3_C1_bini_trainonly_fusion_132@1_val71,joaquin (sesión 12),"preregistro D-A7.3: check_endpoint.py oficial --split val --n 0, una sola corrida"
 2026-09-12T23:55:49Z,s12_D-A7.3_C2_bini_trainonly_lfcc_120@1_val71,joaquin (sesión 12),"preregistro D-A7.3: check_endpoint.py oficial --split val --n 0, una sola corrida"
+2026-09-13T02:13:57Z,s13_D-A7.4_build_spectral_factory_lfcc_trainval_v1,joaquin (sesión 13),preregistro D-A7.4: val ENTRA AL AJUSTE (353 llamadas). No es una mirada de evaluación: a partir de aquí no queda holdout honesto para este bundle
+2026-09-13T02:17:23Z,s13_D-A7.4_build_spectral_factory_lfcc_trainval_v1,joaquin (sesión 13),preregistro D-A7.4: val ENTRA AL AJUSTE (353 llamadas). No es una mirada de evaluación: a partir de aquí no queda holdout honesto para este bundle
+2026-09-13T02:18:38Z,e2e_judge_c2_trainval_D-A7.4_val_n0,e2e_judge.py,e2e con el cliente oficial sobre val (--use-val); no se ajusta nada con el resultado

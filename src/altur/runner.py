@@ -111,7 +111,7 @@ def validate_experiment_spec(spec: Mapping[str, Any]) -> None:
         "schema_version", "extractor", "segmenter", "feature_order", "dtype",
         "nan_policy", "split", "random_seed", "transforms",
     }
-    allowed = required | {"extractor_params"}
+    allowed = required | {"extractor_params", "allow_val_fit"}
     missing = required - set(spec)
     unknown = set(spec) - allowed
     if missing:
@@ -120,8 +120,16 @@ def validate_experiment_spec(spec: Mapping[str, Any]) -> None:
         raise RunnerError(f"spec has unknown fields: {sorted(unknown)}")
     if spec["schema_version"] != 1:
         raise RunnerError("unsupported spec schema_version")
-    if spec["split"] != "train":
-        raise RunnerError("A2 split must be exactly 'train'")
+    # Por defecto solo `train`: es la regla 4 de AGENTS.md y va fail closed. Extraer `val` exige
+    # escribirlo en el spec (`allow_val_fit: true`), para que aparezca en el diff y nunca por
+    # accidente, y quien lo haga deja fila en `experiments/val_looks.csv` (D-A7.4).
+    if spec["split"] != "train" and not (
+        spec["split"] == "val" and spec.get("allow_val_fit") is True
+    ):
+        raise RunnerError(
+            "A2 split must be exactly 'train' (split 'val' needs allow_val_fit: true, a "
+            "preregistered decision and a row in experiments/val_looks.csv)"
+        )
     _versioned_ref(spec["extractor"], "extractor")
     _versioned_ref(spec["segmenter"], "segmenter")
     if not isinstance(spec["transforms"], Sequence) or isinstance(

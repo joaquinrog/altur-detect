@@ -18,6 +18,8 @@ que lo servido es lo medido.
 from __future__ import annotations
 
 import argparse
+import csv
+import datetime as dt
 import json
 import sys
 from pathlib import Path
@@ -39,12 +41,13 @@ from altur.crossfit import (
 from altur.dataset import Dataset
 from altur.models.adapters import logreg
 from altur.models.calibration import PlattCalibrator
-from altur.protocol import load_groups, nested_cv, official_v1
+from altur.protocol import load_groups, nested_cv, official_v1, pooled5_v1
 from altur.provenance import effective_code_digest
 from build_bundle import _commit, _requirements_lock, feature_table
 from run_experiment import load_spec
 
 SPEC = ROOT / "configs" / "experiments" / "a7_spectral_factory_lfcc_v1.yaml"
+VAL_LOOKS = ROOT / "experiments" / "val_looks.csv"
 LR_PARAMS = {"class_weight": "balanced", "max_iter": 1000}
 SEED = 0
 FOLDS = 5
@@ -93,10 +96,26 @@ def compare_reference(path: Path, export, calibrator, threshold: float) -> dict[
     }
 
 
+def record_val_look(out_name: str) -> None:
+    """D-A7.4 mira `val` para ajustar, que es lo más fuerte que se le puede hacer. Queda escrito."""
+    with VAL_LOOKS.open("a", newline="", encoding="utf-8") as f:
+        csv.writer(f).writerow([
+            dt.datetime.now(dt.UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            f"s13_D-A7.4_build_{out_name}",
+            "joaquin (sesión 13)",
+            ("preregistro D-A7.4: val ENTRA AL AJUSTE (353 llamadas). No es una mirada de "
+             "evaluación: a partir de aquí no queda holdout honesto para este bundle"),
+        ])
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", type=Path, default=ROOT / "models" / "spectral_factory_lfcc_v1")
     parser.add_argument("--reference", type=Path, help="export JSON de D-A7.3 para comparar")
+    parser.add_argument(
+        "--use-val", action="store_true",
+        help="D-A7.4: ajusta con train+val (353). Quema el holdout y deja fila en val_looks.csv",
+    )
     args = parser.parse_args(argv)
 
     spec = load_spec(SPEC)
@@ -105,11 +124,21 @@ def main(argv: list[str] | None = None) -> int:
     code_digest = effective_code_digest(ROOT)
 
     ds = Dataset()
-    protocol = official_v1(ds)
+    protocol = pooled5_v1(ds) if args.use_val else official_v1(ds)
     features, labels, run_id = feature_table(spec, ds, code_digest, commit)
+    if args.use_val:
+        record_val_look(args.out.name)
+        # `feature_table` extrae un split por corrida y `ids_for` solo conoce train y val, así que
+        # se corre dos veces y se unen. La de train sale de caché; solo se extraen las 71 de val.
+        val_features, val_labels, val_run_id = feature_table(
+            spec | {"split": "val", "allow_val_fit": True}, ds, code_digest, commit,
+        )
+        features |= val_features
+        labels |= val_labels
+        run_id = f"{run_id}+{val_run_id}"
     ids = tuple(sorted(features))
     if set(ids) != set(protocol.fit_ids):
-        raise SystemExit("las features no cubren exactamente train")
+        raise SystemExit(f"las features no cubren exactamente {protocol.name}")
     table = FeatureTable(features, labels)
     X, y = table.matrix(ids, feature_order), table.y(ids)
 
@@ -143,7 +172,7 @@ def main(argv: list[str] | None = None) -> int:
             "protocol": protocol.name,
             "unit": "call",
             "seed": SEED,
-            "recipe": "D-A7.3",
+            "recipe": "D-A7.4 (train+val)" if args.use_val else "D-A7.3",
             "oof_auc": round(float(oof_auc), 4),
             "oof_auc_ci95": [round(float(auc_lo), 4), round(float(auc_hi), 4)],
             "oof_brier": round(float(brier(nested.y_true, nested.y_score)), 4),
@@ -182,6 +211,20 @@ def main(argv: list[str] | None = None) -> int:
             (
                 "UNK: la curva de truncacion no se midio para LFCC; min_seconds_declared hereda "
                 "los 20 s del baseline acustico (D-A3.8)."
+            ),
+            *(
+                [
+                    ("🔴 OBS: este bundle se ajusto con train+val (353 llamadas, D-A7.4). NO TIENE "
+                     "EVALUACION HONESTA: no queda ningun holdout con el que comparar contra el "
+                     "bundle train-only. Sus metricas OOF se calculan sobre datos que el modelo "
+                     "vio en el ajuste final y NO son evidencia de superioridad. La razon para "
+                     "servirlo es a priori: 71 llamadas mas, con hablantes que no estaban en "
+                     "train, y el set oculto se puntua con hablantes nuevos."),
+                    ("UNK: si este bundle es mejor o peor que spectral_factory_lfcc_v1 "
+                     "(train-only). Solo el resultado del set oculto lo dira, y para entonces ya "
+                     "no se puede cambiar. El bundle train-only queda como rollback."),
+                ]
+                if args.use_val else []
             ),
         ],
     )
