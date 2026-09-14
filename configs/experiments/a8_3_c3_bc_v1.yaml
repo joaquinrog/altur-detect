@@ -1,0 +1,110 @@
+# D-A8.3 C3: LFCC sin los 20 static*_mean; no usa val ni transformaciones.
+schema_version: 1
+extractor: spectral_factory.lfcc@1
+segmenter: spectral_factory.energy_adaptive@1
+feature_order:
+  - spectral_factory.lfcc.static0_std
+  - spectral_factory.lfcc.static1_std
+  - spectral_factory.lfcc.static2_std
+  - spectral_factory.lfcc.static3_std
+  - spectral_factory.lfcc.static4_std
+  - spectral_factory.lfcc.static5_std
+  - spectral_factory.lfcc.static6_std
+  - spectral_factory.lfcc.static7_std
+  - spectral_factory.lfcc.static8_std
+  - spectral_factory.lfcc.static9_std
+  - spectral_factory.lfcc.static10_std
+  - spectral_factory.lfcc.static11_std
+  - spectral_factory.lfcc.static12_std
+  - spectral_factory.lfcc.static13_std
+  - spectral_factory.lfcc.static14_std
+  - spectral_factory.lfcc.static15_std
+  - spectral_factory.lfcc.static16_std
+  - spectral_factory.lfcc.static17_std
+  - spectral_factory.lfcc.static18_std
+  - spectral_factory.lfcc.static19_std
+  - spectral_factory.lfcc.delta0_mean
+  - spectral_factory.lfcc.delta0_std
+  - spectral_factory.lfcc.delta1_mean
+  - spectral_factory.lfcc.delta1_std
+  - spectral_factory.lfcc.delta2_mean
+  - spectral_factory.lfcc.delta2_std
+  - spectral_factory.lfcc.delta3_mean
+  - spectral_factory.lfcc.delta3_std
+  - spectral_factory.lfcc.delta4_mean
+  - spectral_factory.lfcc.delta4_std
+  - spectral_factory.lfcc.delta5_mean
+  - spectral_factory.lfcc.delta5_std
+  - spectral_factory.lfcc.delta6_mean
+  - spectral_factory.lfcc.delta6_std
+  - spectral_factory.lfcc.delta7_mean
+  - spectral_factory.lfcc.delta7_std
+  - spectral_factory.lfcc.delta8_mean
+  - spectral_factory.lfcc.delta8_std
+  - spectral_factory.lfcc.delta9_mean
+  - spectral_factory.lfcc.delta9_std
+  - spectral_factory.lfcc.delta10_mean
+  - spectral_factory.lfcc.delta10_std
+  - spectral_factory.lfcc.delta11_mean
+  - spectral_factory.lfcc.delta11_std
+  - spectral_factory.lfcc.delta12_mean
+  - spectral_factory.lfcc.delta12_std
+  - spectral_factory.lfcc.delta13_mean
+  - spectral_factory.lfcc.delta13_std
+  - spectral_factory.lfcc.delta14_mean
+  - spectral_factory.lfcc.delta14_std
+  - spectral_factory.lfcc.delta15_mean
+  - spectral_factory.lfcc.delta15_std
+  - spectral_factory.lfcc.delta16_mean
+  - spectral_factory.lfcc.delta16_std
+  - spectral_factory.lfcc.delta17_mean
+  - spectral_factory.lfcc.delta17_std
+  - spectral_factory.lfcc.delta18_mean
+  - spectral_factory.lfcc.delta18_std
+  - spectral_factory.lfcc.delta19_mean
+  - spectral_factory.lfcc.delta19_std
+  - spectral_factory.lfcc.deltadelta0_mean
+  - spectral_factory.lfcc.deltadelta0_std
+  - spectral_factory.lfcc.deltadelta1_mean
+  - spectral_factory.lfcc.deltadelta1_std
+  - spectral_factory.lfcc.deltadelta2_mean
+  - spectral_factory.lfcc.deltadelta2_std
+  - spectral_factory.lfcc.deltadelta3_mean
+  - spectral_factory.lfcc.deltadelta3_std
+  - spectral_factory.lfcc.deltadelta4_mean
+  - spectral_factory.lfcc.deltadelta4_std
+  - spectral_factory.lfcc.deltadelta5_mean
+  - spectral_factory.lfcc.deltadelta5_std
+  - spectral_factory.lfcc.deltadelta6_mean
+  - spectral_factory.lfcc.deltadelta6_std
+  - spectral_factory.lfcc.deltadelta7_mean
+  - spectral_factory.lfcc.deltadelta7_std
+  - spectral_factory.lfcc.deltadelta8_mean
+  - spectral_factory.lfcc.deltadelta8_std
+  - spectral_factory.lfcc.deltadelta9_mean
+  - spectral_factory.lfcc.deltadelta9_std
+  - spectral_factory.lfcc.deltadelta10_mean
+  - spectral_factory.lfcc.deltadelta10_std
+  - spectral_factory.lfcc.deltadelta11_mean
+  - spectral_factory.lfcc.deltadelta11_std
+  - spectral_factory.lfcc.deltadelta12_mean
+  - spectral_factory.lfcc.deltadelta12_std
+  - spectral_factory.lfcc.deltadelta13_mean
+  - spectral_factory.lfcc.deltadelta13_std
+  - spectral_factory.lfcc.deltadelta14_mean
+  - spectral_factory.lfcc.deltadelta14_std
+  - spectral_factory.lfcc.deltadelta15_mean
+  - spectral_factory.lfcc.deltadelta15_std
+  - spectral_factory.lfcc.deltadelta16_mean
+  - spectral_factory.lfcc.deltadelta16_std
+  - spectral_factory.lfcc.deltadelta17_mean
+  - spectral_factory.lfcc.deltadelta17_std
+  - spectral_factory.lfcc.deltadelta18_mean
+  - spectral_factory.lfcc.deltadelta18_std
+  - spectral_factory.lfcc.deltadelta19_mean
+  - spectral_factory.lfcc.deltadelta19_std
+dtype: float64
+nan_policy: reject
+split: train
+random_seed: 20260912
+transforms: []

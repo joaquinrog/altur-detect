@@ -1,0 +1,8 @@
+# Dependencias del camino de INFERENCIA, congeladas por scripts/build_bundle.py.
+# sklearn NO está aquí a propósito: el bundle es NumPy puro (D-A3.3).
+# python 3.12.3
+numpy==2.5.3
+fastapi==0.141.1
+uvicorn==0.52.4
+pydantic==2.13.5
+python-multipart==0.0.32
